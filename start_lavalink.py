@@ -1,16 +1,16 @@
 import os
-import sys
+import sys # Ensure sys is imported
 import subprocess
 import urllib.request
 import urllib.error
 import platform
-import re
+import re # Ensure re is imported
 import shutil
 
 # --- Configuration ---
 # Check the Lavalink releases page for the latest stable v4 version:
 # https://github.com/lavalink-devs/Lavalink/releases
-LAVALINK_VERSION = "4.0.8"  # <--- Update this to the desired Lavalink v4 version
+LAVALINK_VERSION = "4.0.7"  # <--- Update this to the desired Lavalink v4 version
 REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 # --- End Configuration ---
 
@@ -36,7 +36,7 @@ def download_file(url, destination_path, description):
     try:
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-        
+
         # Use shutil.copyfileobj for potentially large files
         with urllib.request.urlopen(url) as response, open(destination_path, 'wb') as out_file:
             if response.status == 200:
@@ -58,23 +58,43 @@ def download_file(url, destination_path, description):
             os.remove(destination_path)
         return False
 
+# --- CORRECTED check_java_version function ---
 def check_java_version():
     """Checks if a compatible Java version is installed and returns its major version."""
     print("Checking Java version...")
     try:
         # Running 'java -version' prints to stderr
-        result = subprocess.run(["java", "-version"], capture_output=True, text=True, check=True, stderr=subprocess.PIPE)
-        output = result.stderr # Version info is typically on stderr
-        
+        # Use capture_output=True, which implies stdout=PIPE and stderr=PIPE
+        result = subprocess.run(
+            ["java", "-version"],
+            capture_output=True, # Captures stdout and stderr
+            text=True,           # Decodes output to text
+            check=False          # Don't raise exception immediately, check manually
+        )
+
+        # Check if the command was found at all - more reliable than just checking return code
+        # Different OS/shells might indicate "not found" differently in stderr
+        if result.returncode != 0 and ('not found' in result.stderr.lower() or 'not recognized' in result.stderr.lower()):
+             raise FileNotFoundError("Java command not found")
+
+        # Check if command failed for other reasons after confirming it was found
+        if result.returncode != 0:
+             # Raise an error mimicking check=True but using stderr for message
+             raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout, stderr=result.stderr)
+
+        # If command succeeded (returncode 0), proceed to parse stderr
+        output = result.stderr # Version info is typically on stderr for 'java -version'
+
         # Regex to find version string like "17.0.1" or "1.8.0_292"
-        match = re.search(r'version "(\d+)(?:\.(\d+))?.*?"', output)
+        # Made slightly more general for openjdk etc.
+        match = re.search(r'(?:java|openjdk)\s+version\s+"(\d+)(?:\.(\d+))?.*?"', output, re.IGNORECASE)
         if match:
             major = int(match.group(1))
             # Handle pre-Java 9 versions (e.g., "1.8")
             if major == 1:
-                minor_match = re.search(r'version "1\.(\d+).*?"', output)
+                minor_match = re.search(r'version\s+"1\.(\d+).*?"', output, re.IGNORECASE)
                 if minor_match:
-                     major = int(minor_match.group(1)) # Use the minor version as major (e.g., 8 for 1.8)
+                    major = int(minor_match.group(1)) # Use the minor version as major (e.g., 8 for 1.8)
                 else:
                     print("Could not parse Java minor version for pre-Java 9 format.")
                     return None, output # Return None and the output for debugging
@@ -82,20 +102,30 @@ def check_java_version():
             print(f"Detected Java major version: {major}")
             return major, output
         else:
-            print("Could not parse Java version string from output.")
-            return None, output # Return None and the output for debugging
+            print("Could not parse Java version string from stderr.")
+            # Combine stderr/stdout for debugging in case version is printed differently
+            full_output = f"--- Stderr ---\n{result.stderr}\n--- Stdout ---\n{result.stdout}"
+            return None, full_output # Return None and the combined output for debugging
 
     except FileNotFoundError:
         print("Error: 'java' command not found. Is Java installed and in your PATH?")
+        # Ensure we return two values as expected by the caller
         return None, "Java command not found."
     except subprocess.CalledProcessError as e:
-        print(f"Error running 'java -version': {e}")
-        print("Output:", e.output)
-        print("Stderr:", e.stderr)
-        return None, e.stderr or e.output
+        # This block now catches errors other than 'command not found' if check=False is used
+        print(f"Error running 'java -version' (Return Code: {e.returncode}):")
+        full_output = f"--- Stderr ---\n{e.stderr or '[No Stderr]'}\n--- Stdout ---\n{e.output or '[No Stdout]'}"
+        print(full_output)
+        return None, full_output
     except Exception as e:
         print(f"An unexpected error occurred while checking Java version: {e}")
-        return None, str(e)
+        # Attempt to provide context if result was partially processed
+        try:
+            err_output = result.stderr if 'result' in locals() and hasattr(result, 'stderr') else str(e)
+        except:
+            err_output = str(e)
+        return None, err_output
+# --- End of corrected function ---
 
 
 def setup_lavalink():
@@ -166,7 +196,7 @@ def start_lavalink():
         # Use subprocess.run which waits for completion, or Popen for background running
         # Using run here to keep the script attached to Lavalink's output
         process = subprocess.run(
-            ["java", "-jar", JAR_PATH], # Spring Boot usually finds application.yml in the same dir automatically
+            ["java", "-jar", JAR_NAME], # Spring Boot usually finds application.yml in the same dir automatically
             # If needed, explicitly specify config:
             # ["java", "-jar", JAR_PATH, f"--spring.config.location=file:{CONFIG_PATH}"],
             cwd=LAVALINK_DIR, # Run java from within the lavalink directory
