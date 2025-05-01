@@ -33,15 +33,28 @@ class Play(commands.Cog):
             # Check if the query is a YouTube URL
             youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
             if re.match(youtube_pattern, query):
-                logger.info(f"Detected YouTube URL, attempting direct load: {query}")
+                logger.info(f"Detected YouTube URL: {query}")
                 try:
-                    tracks = await wavelink.Playable.search(query, source=wavelink.TrackSource.YouTube)
-                except wavelink.exceptions.LavalinkLoadException:
-                    # If direct load fails, try searching with the URL as a query
-                    logger.info("Direct load failed, falling back to search")
+                    # Try to extract video ID for more reliable search
+                    video_id = None
+                    if 'youtube.com/watch?v=' in query:
+                        video_id = query.split('watch?v=')[1].split('&')[0]
+                    elif 'youtu.be/' in query:
+                        video_id = query.split('youtu.be/')[1].split('?')[0]
+                    
+                    if video_id:
+                        # Try searching with the video ID
+                        search_query = f"ytsearch:{video_id}"
+                        logger.info(f"Searching with video ID: {video_id}")
+                        tracks = await wavelink.Playable.search(search_query)
+                    else:
+                        # Fallback to regular search if we can't extract ID
+                        tracks = await wavelink.Playable.search(query)
+                except Exception as e:
+                    logger.error(f"Error processing YouTube URL: {e}")
                     tracks = await wavelink.Playable.search(query)
             else:
-                logger.info(f"Searching for tracks with query: '{query}' using node {vc.node.identifier}")
+                logger.info(f"Searching for tracks with query: '{query}'")
                 tracks = await wavelink.Playable.search(query)
 
             if not tracks:
@@ -63,7 +76,7 @@ class Play(commands.Cog):
             logger.error(f"LavalinkLoadException for query '{query}': {lavalink_err}")
             error_msg = f"Failed to load tracks for `{query}`. "
             if "Unknown file format" in str(lavalink_err):
-                error_msg += "This might be due to an unsupported URL format or region restrictions."
+                error_msg += "This might be due to an unsupported URL format or region restrictions. Please try a different URL or search query."
             else:
                 error_msg += f"Lavalink error: {lavalink_err.error}"
             await interaction.followup.send(error_msg, ephemeral=True)
