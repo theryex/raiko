@@ -30,11 +30,9 @@ class Play(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True, thinking=True)
 
-            # Log node information for debugging
+            # Log basic node information
             logger.info(f"Using node: {vc.node.identifier}")
             logger.info(f"Node status: {vc.node.status}")
-            logger.info(f"Node version: {vc.node.version}")
-            logger.info(f"Node region: {vc.node.region}")
 
             # Check if the query is a YouTube URL
             youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
