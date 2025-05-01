@@ -4,6 +4,7 @@ from discord.ext import commands
 import wavelink
 import asyncio
 import logging
+import re
 
 class Play(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -29,8 +30,19 @@ class Play(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True, thinking=True)
 
-            logger.info(f"Searching for tracks with query: '{query}' using node {vc.node.identifier}")
-            tracks: wavelink.Search = await wavelink.Playable.search(query)
+            # Check if the query is a YouTube URL
+            youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
+            if re.match(youtube_pattern, query):
+                logger.info(f"Detected YouTube URL, attempting direct load: {query}")
+                try:
+                    tracks = await wavelink.Playable.search(query, source=wavelink.TrackSource.YouTube)
+                except wavelink.exceptions.LavalinkLoadException:
+                    # If direct load fails, try searching with the URL as a query
+                    logger.info("Direct load failed, falling back to search")
+                    tracks = await wavelink.Playable.search(query)
+            else:
+                logger.info(f"Searching for tracks with query: '{query}' using node {vc.node.identifier}")
+                tracks = await wavelink.Playable.search(query)
 
             if not tracks:
                 await interaction.followup.send(f"Could not find any tracks for query: `{query}`")
@@ -49,7 +61,12 @@ class Play(commands.Cog):
 
         except wavelink.exceptions.LavalinkLoadException as lavalink_err:
             logger.error(f"LavalinkLoadException for query '{query}': {lavalink_err}")
-            await interaction.followup.send(f"Failed to load tracks for `{query}`. Lavalink error: {lavalink_err.error}", ephemeral=True)
+            error_msg = f"Failed to load tracks for `{query}`. "
+            if "Unknown file format" in str(lavalink_err):
+                error_msg += "This might be due to an unsupported URL format or region restrictions."
+            else:
+                error_msg += f"Lavalink error: {lavalink_err.error}"
+            await interaction.followup.send(error_msg, ephemeral=True)
         except Exception as e:
             logger.exception(f"An unexpected error occurred in the play command for query '{query}': {e}")
             await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
