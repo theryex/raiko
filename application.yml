@@ -42,4 +42,10 @@ plugins:
         videoLoading: true
       WEBEMBEDDED:
         playlistLoading: true
-        searching: true 
+        searching: true
+      MUSIC:
+        playback: true
+        videoLoading: true
+      ANDROID_VR:
+        playback: true
+        videoLoading: true 
