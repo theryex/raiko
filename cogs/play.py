@@ -47,22 +47,19 @@ class Play(commands.Cog):
                         video_id = query.split('youtu.be/')[1].split('?')[0]
                     
                     if video_id:
-                        # Try different search methods
-                        search_queries = [
-                            f"ytsearch:{video_id}",
-                            f"ytmsearch:{video_id}",
-                            f"https://www.youtube.com/watch?v={video_id}"
-                        ]
-                        
-                        for search_query in search_queries:
-                            logger.info(f"Trying search with query: {search_query}")
-                            try:
-                                tracks = await wavelink.Playable.search(search_query)
-                                if tracks:
-                                    break
-                            except Exception as e:
-                                logger.warning(f"Search failed with query '{search_query}': {e}")
-                                continue
+                        # Try searching with the video title first
+                        try:
+                            # Get video info to get the title
+                            tracks = await wavelink.Playable.search(f"ytsearch:{video_id}")
+                            if tracks and len(tracks) > 0:
+                                # Use the title to search again
+                                title = tracks[0].title
+                                logger.info(f"Found video title: {title}")
+                                tracks = await wavelink.Playable.search(title)
+                        except Exception as e:
+                            logger.warning(f"Failed to get video title: {e}")
+                            # Fallback to direct search
+                            tracks = await wavelink.Playable.search(query)
                     else:
                         tracks = await wavelink.Playable.search(query)
                 except Exception as e:
