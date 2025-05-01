@@ -53,11 +53,11 @@ async def on_ready():
     await bot.tree.sync()
     
     # Setup wavelink
-    node: wavelink.Node = wavelink.Node(
+    node = wavelink.Node(
         uri=f'http://{os.getenv("LAVALINK_HOST", "127.0.0.1")}:{os.getenv("LAVALINK_PORT", "2333")}',
         password=os.getenv('LAVALINK_PASSWORD', 'youshallnotpass')
     )
-    await wavelink.NodePool.connect(client=bot, nodes=[node])
+    await wavelink.Node.connect(client=bot, nodes=[node])
 
 async def main():
     async with bot:
