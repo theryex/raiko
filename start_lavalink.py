@@ -17,9 +17,11 @@ REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 # --- YouTube Plugin Configuration ---
 # IMPORTANT: Check the plugin releases page for the latest version compatible with Lavalink v4.0.8
 # e.g., https://github.com/lavalink-plugins/youtube/releases
-PLUGIN_VERSION = "1.13.0" # <-- !!! VERIFY AND UPDATE THIS VERSION !!!
-PLUGIN_NAME = "youtube-v2"
-PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar"
+# Latest version as of checking: 1.3.0 (requires Lavalink 4.0.7+)
+PLUGIN_VERSION = "1.3.0" # <-- Use the latest compatible version
+PLUGIN_NAME = "youtube" # <-- Use the name as found in GitHub releases
+# Construct JAR name based on official releases (e.g., youtube-1.3.0.jar)
+PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar" #<-- Correct format
 # Adjust owner/repo if the official plugin location changes
 PLUGIN_REPO_OWNER = "lavalink-plugins"
 PLUGIN_REPO_NAME = "youtube"
@@ -276,7 +278,8 @@ def start_lavalink():
         # Add logging level arguments BEFORE -jar
         "-Dlogging.level.lavalink=DEBUG", # General Lavalink Debug
         "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG", # Lavaplayer Debug
-        "-Dlogging.level.plugin.youtube=DEBUG", # YouTube Plugin Debug (adjust logger name if needed)
+        # Use the plugin ID typically defined in its manifest ('youtube' usually)
+        "-Dlogging.level.lavalink.plugins.youtube=DEBUG", # Correct logger name likely
         "-jar",
         JAR_NAME # Relative path works because we set cwd
     ]
