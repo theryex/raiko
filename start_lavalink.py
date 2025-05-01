@@ -15,16 +15,10 @@ LAVALINK_VERSION = "4.0.8"  # <-- Updated Lavalink Version
 REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 
 # --- YouTube Plugin Configuration ---
-# IMPORTANT: Check the plugin releases page for the latest version compatible with Lavalink v4.0.8
-# e.g., https://github.com/lavalink-plugins/youtube/releases
-# Latest version as of checking: 1.3.0 (requires Lavalink 4.0.7+)
-PLUGIN_VERSION = "1.3.0" # <-- Use the latest compatible version
-PLUGIN_NAME = "youtube" # <-- Use the name as found in GitHub releases
-# Construct JAR name based on official releases (e.g., youtube-1.3.0.jar)
-PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar" #<-- Correct format
-# Adjust owner/repo if the official plugin location changes
-PLUGIN_REPO_OWNER = "lavalink-plugins"
-PLUGIN_REPO_NAME = "youtube"
+# Using a direct URL as requested
+PLUGIN_VERSION = "1.13.0" # Version derived from the provided URL
+PLUGIN_JAR_NAME = "youtube-v2-1.13.0.jar" # Filename from the provided URL
+DIRECT_PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-v2-1.13.0.jar"
 # --- End Configuration ---
 
 LAVALINK_DIR = "lavalink"
@@ -35,7 +29,7 @@ PLUGINS_DIR = os.path.join(LAVALINK_DIR, "plugins") # Standard directory for Lav
 
 JAR_PATH = os.path.join(LAVALINK_DIR, JAR_NAME)
 CONFIG_PATH = os.path.join(LAVALINK_DIR, CONFIG_NAME)
-PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, PLUGIN_JAR_NAME)
+PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, PLUGIN_JAR_NAME) # Path uses the specific JAR name
 
 def get_lavalink_urls(version):
     """Gets the download URLs for the JAR and example config for a specific version."""
@@ -44,10 +38,7 @@ def get_lavalink_urls(version):
     config_url = f"https://raw.githubusercontent.com/lavalink-devs/Lavalink/{version}/LavalinkServer/{EXAMPLE_CONFIG_NAME}"
     return jar_url, config_url
 
-def get_plugin_url(owner, repo, version, jar_name):
-     """Gets the download URL for the plugin JAR."""
-     # Note: Some plugins might use different URL structures or artifact names
-     return f"https://github.com/{owner}/{repo}/releases/download/{version}/{jar_name}"
+# Removed get_plugin_url function as it's no longer needed
 
 def download_file(url, destination_path, description):
     """Downloads a file from a URL to a destination path."""
@@ -129,10 +120,7 @@ def check_plugin_config(config_file_path):
             content = f.read()
 
         # Basic checks (YAML is whitespace sensitive, so these are approximations)
-        # 1. Check if built-in youtube source is disabled
-        #    Matches variations like 'youtube: false' under 'sources:' which is under 'server:' under 'lavalink:'
         disabled_pattern = re.compile(r"lavalink:\s*\n(.*?)\s+server:\s*\n(.*?)\s+sources:\s*\n(.*?)\s+youtube:\s*false", re.DOTALL | re.MULTILINE)
-        # 2. Check if a top-level 'plugins:' key exists
         plugins_pattern = re.compile(r"^\s*plugins:", re.MULTILINE)
 
         built_in_disabled = disabled_pattern.search(content) is not None
@@ -156,14 +144,10 @@ def check_plugin_config(config_file_path):
             print(f"Please ensure your '{config_file_path}' contains a block like this at the root level:")
             print(textwrap.dedent("""
               plugins:
-                youtube: # Or configure other plugins here
-                  enabled: true
-                  # Add other youtube plugin specific options if needed, e.g.:
-                  # allowSearch: true
-                  # clients:
-                  #  - MUSIC
-                  #  - WEB
-                  # See plugin documentation for details.
+                # Configure your plugins here. For the YouTube plugin:
+                # youtube: # Or whatever ID the plugin uses
+                #  enabled: true
+                # See plugin documentation for details.
             """))
             print("="*50 + "\n")
 
@@ -171,13 +155,12 @@ def check_plugin_config(config_file_path):
             print("Basic plugin configuration appears present (manual verification recommended).")
             return True
         else:
-            # One or both checks failed
             print(f"Action required: Please review and edit '{config_file_path}' based on the warnings above.")
-            return False # Indicate checks failed
+            return False
 
     except Exception as e:
         print(f"Error reading or checking config file '{config_file_path}': {e}")
-        return False # Indicate check failed
+        return False
 
 
 def setup_lavalink():
@@ -187,14 +170,12 @@ def setup_lavalink():
     config_example_path = os.path.join(LAVALINK_DIR, EXAMPLE_CONFIG_NAME)
     config_downloaded = False
 
-    # Download Lavalink.jar if needed
     if not os.path.exists(JAR_PATH):
         if not download_file(jar_url, JAR_PATH, f"Lavalink v{LAVALINK_VERSION} JAR"):
             return False
     else:
         print(f"Lavalink JAR ({JAR_NAME}) already exists.")
 
-    # Download application.yml.example if application.yml doesn't exist
     if not os.path.exists(CONFIG_PATH):
         print(f"{CONFIG_NAME} not found.")
         if not download_file(config_url, config_example_path, "Lavalink example configuration"):
@@ -203,22 +184,23 @@ def setup_lavalink():
         try:
             shutil.move(config_example_path, CONFIG_PATH)
             print(f"Created {CONFIG_NAME} from example.")
-            config_downloaded = True # Mark that we just created it
+            config_downloaded = True
         except OSError as e:
             print(f"Error moving example config: {e}")
             return False
     else:
          print(f"Lavalink configuration ({CONFIG_NAME}) already exists.")
 
-    # --- Setup YouTube Plugin ---
-    plugin_url = get_plugin_url(PLUGIN_REPO_OWNER, PLUGIN_REPO_NAME, PLUGIN_VERSION, PLUGIN_JAR_NAME)
+    # --- Setup YouTube Plugin using Direct URL ---
+    # Use the hardcoded URL and specific JAR name
+    plugin_url = DIRECT_PLUGIN_URL
     plugin_downloaded = False
 
     if not os.path.exists(PLUGIN_JAR_PATH):
         print(f"YouTube Plugin JAR ({PLUGIN_JAR_NAME}) not found.")
+        # Attempt download using the direct URL
         if not download_file(plugin_url, PLUGIN_JAR_PATH, f"YouTube Plugin v{PLUGIN_VERSION} JAR"):
              print("Continuing without YouTube plugin download.")
-             # Don't fail the whole setup if plugin download fails, maybe user doesn't need it
         else:
              plugin_downloaded = True
     else:
@@ -227,7 +209,6 @@ def setup_lavalink():
     # --- Check Configuration for Plugin ---
     if os.path.exists(PLUGIN_JAR_PATH):
         if config_downloaded or plugin_downloaded:
-             # If we just downloaded either the config or the plugin, remind user to configure
              print("\n" + "="*50)
              print("ACTION REQUIRED: Lavalink config or YouTube plugin was just downloaded.")
              print(f"Please review '{CONFIG_PATH}' and ensure it's configured correctly for the YouTube plugin:")
@@ -237,13 +218,11 @@ def setup_lavalink():
              print("You may need to stop this script, edit the file, and restart.")
              print("="*50 + "\n")
         else:
-             # Both config and plugin existed before, check if config looks okay
              check_plugin_config(CONFIG_PATH)
     else:
         print("YouTube Plugin JAR not found, skipping configuration check.")
 
-
-    return True # Setup overall successful, even if config needs manual edits
+    return True
 
 
 def start_lavalink():
@@ -260,12 +239,12 @@ def start_lavalink():
     else:
         print(f"Java version {java_major_version} is compatible (Required: {REQUIRED_JAVA_VERSION}+).")
 
-    # Proceed with download/setup
     if not setup_lavalink():
         sys.exit("Lavalink setup failed. Please check errors above.")
 
     print("-" * 30)
-    print(f"Attempting to start Lavalink v{LAVALINK_VERSION} with YouTube Plugin v{PLUGIN_VERSION} (if present)...")
+    # Adjusted log message to reflect specific plugin JAR name
+    print(f"Attempting to start Lavalink v{LAVALINK_VERSION} with Plugin {PLUGIN_JAR_NAME} (if present)...")
     print(f"Using JAR: {JAR_PATH}")
     print(f"Using Config: {CONFIG_PATH}")
     if os.path.exists(PLUGIN_JAR_PATH):
@@ -275,19 +254,18 @@ def start_lavalink():
     # --- Start Lavalink with Debug Flags ---
     java_command = [
         "java",
-        # Add logging level arguments BEFORE -jar
-        "-Dlogging.level.lavalink=DEBUG", # General Lavalink Debug
-        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG", # Lavaplayer Debug
-        # Use the plugin ID typically defined in its manifest ('youtube' usually)
-        "-Dlogging.level.lavalink.plugins.youtube=DEBUG", # Correct logger name likely
+        "-Dlogging.level.lavalink=DEBUG",
+        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG",
+        # Keeping generic 'youtube' ID here, adjust if the v2 plugin uses a different internal ID
+        "-Dlogging.level.lavalink.plugins.youtube=DEBUG",
         "-jar",
-        JAR_NAME # Relative path works because we set cwd
+        JAR_NAME
     ]
 
     try:
         process = subprocess.run(
             java_command,
-            cwd=LAVALINK_DIR, # Run java from within the lavalink directory
+            cwd=LAVALINK_DIR,
             check=False
         )
         print(f"Lavalink process finished with exit code: {process.returncode}")
