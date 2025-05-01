@@ -32,8 +32,9 @@ class Play(commands.Cog):
 
             # Log node information for debugging
             logger.info(f"Using node: {vc.node.identifier}")
-            logger.info(f"Node stats: {vc.node.stats}")
-            logger.info(f"Node available sources: {vc.node.sources}")
+            logger.info(f"Node status: {vc.node.status}")
+            logger.info(f"Node version: {vc.node.version}")
+            logger.info(f"Node region: {vc.node.region}")
 
             # Check if the query is a YouTube URL
             youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
