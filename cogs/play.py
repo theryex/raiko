@@ -30,6 +30,11 @@ class Play(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True, thinking=True)
 
+            # Log node information for debugging
+            logger.info(f"Using node: {vc.node.identifier}")
+            logger.info(f"Node stats: {vc.node.stats}")
+            logger.info(f"Node available sources: {vc.node.sources}")
+
             # Check if the query is a YouTube URL
             youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
             if re.match(youtube_pattern, query):
@@ -43,12 +48,23 @@ class Play(commands.Cog):
                         video_id = query.split('youtu.be/')[1].split('?')[0]
                     
                     if video_id:
-                        # Try searching with the video ID
-                        search_query = f"ytsearch:{video_id}"
-                        logger.info(f"Searching with video ID: {video_id}")
-                        tracks = await wavelink.Playable.search(search_query)
+                        # Try different search methods
+                        search_queries = [
+                            f"ytsearch:{video_id}",
+                            f"ytmsearch:{video_id}",
+                            f"https://www.youtube.com/watch?v={video_id}"
+                        ]
+                        
+                        for search_query in search_queries:
+                            logger.info(f"Trying search with query: {search_query}")
+                            try:
+                                tracks = await wavelink.Playable.search(search_query)
+                                if tracks:
+                                    break
+                            except Exception as e:
+                                logger.warning(f"Search failed with query '{search_query}': {e}")
+                                continue
                     else:
-                        # Fallback to regular search if we can't extract ID
                         tracks = await wavelink.Playable.search(query)
                 except Exception as e:
                     logger.error(f"Error processing YouTube URL: {e}")
@@ -58,7 +74,7 @@ class Play(commands.Cog):
                 tracks = await wavelink.Playable.search(query)
 
             if not tracks:
-                await interaction.followup.send(f"Could not find any tracks for query: `{query}`")
+                await interaction.followup.send(f"Could not find any tracks for query: `{query}`. Please try a different search term or URL.")
                 return
 
             if isinstance(tracks, wavelink.Playlist):
