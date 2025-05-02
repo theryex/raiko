@@ -30,4 +30,8 @@ plugins:
     enabled: true
     allowSearch: true
     allowDirectVideoIds: true
-    allowDirectPlaylistIds: true 
+    allowDirectPlaylistIds: true
+    clients:
+      - MUSIC
+      - WEB
+      - ANDROID_TESTSUITE 
