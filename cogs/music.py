@@ -13,9 +13,19 @@ class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    async def cog_before_invoke(self, ctx):
+        """Check if the command is being used in a guild."""
+        if not ctx.guild:
+            await ctx.send("This command can only be used in a server!")
+            return False
+        return True
+
     @app_commands.command(name="play", description="Plays a song or adds it to the queue.")
     @app_commands.describe(query='URL or search query')
     async def play(self, interaction: discord.Interaction, *, query: str):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         logger = logging.getLogger(__name__)
         logger.info(f"Received play command in '{interaction.guild.name}' with query: '{query}'")
 
@@ -35,19 +45,28 @@ class Music(commands.Cog):
                 await interaction.response.send_message("You need to be in the same voice channel as the bot.", ephemeral=True)
                 return
 
-        # Check if the query is a URL or a search term
-        search_query: str
-        is_url = URL_REGEX.match(query)
-
-        if is_url:
-            logger.info(f"Detected URL: {query}")
-            search_query = query
-        else:
-            logger.info(f"Detected search term: {query}")
-            search_query = f"ytsearch:{query}"
-
         try:
             await interaction.response.defer(thinking=True)
+
+            # Check if the query is a YouTube URL
+            youtube_pattern = r'(https?://)?(www\.)?(youtube\.com|youtu\.be)/.+'
+            if re.match(youtube_pattern, query):
+                logger.info(f"Detected YouTube URL: {query}")
+                # Try to extract video ID for more reliable search
+                video_id = None
+                if 'youtube.com/watch?v=' in query:
+                    video_id = query.split('watch?v=')[1].split('&')[0]
+                elif 'youtu.be/' in query:
+                    video_id = query.split('youtu.be/')[1].split('?')[0]
+                
+                if video_id:
+                    # Try searching with the video ID first
+                    search_query = f"ytsearch:{video_id}"
+                else:
+                    search_query = query
+            else:
+                logger.info(f"Detected search term: {query}")
+                search_query = f"ytsearch:{query}"
 
             logger.info(f"Searching for tracks with identifier: '{search_query}' using node {vc.node.identifier}")
             logger.info(f"Node status: {vc.node.status}")
@@ -76,13 +95,21 @@ class Music(commands.Cog):
 
         except wavelink.exceptions.LavalinkLoadException as lavalink_err:
             logger.error(f"LavalinkLoadException for identifier '{search_query}': {lavalink_err}")
-            await interaction.followup.send(f"Failed to load tracks for `{query}`. Lavalink error: {lavalink_err.error}", ephemeral=True)
+            error_msg = f"Failed to load tracks for `{query}`. "
+            if "Unknown file format" in str(lavalink_err):
+                error_msg += "This might be due to an unsupported URL format or region restrictions. Please try a different URL or search query."
+            else:
+                error_msg += f"Lavalink error: {lavalink_err.error}"
+            await interaction.followup.send(error_msg, ephemeral=True)
         except Exception as e:
             logger.exception(f"An unexpected error occurred in the play command for query '{query}': {e}")
             await interaction.followup.send(f"An unexpected error occurred: {e}", ephemeral=True)
 
     @app_commands.command(name="shuffle", description="Shuffles the queue")
     async def shuffle(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -95,6 +122,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="skip", description="Skips the current song")
     async def skip(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -109,6 +139,9 @@ class Music(commands.Cog):
     @app_commands.command(name="queue", description="Displays the current song queue")
     @app_commands.describe(page="Page number of the queue")
     async def queue(self, interaction: discord.Interaction, page: Optional[int] = 1):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -144,6 +177,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="pause", description="Pauses the current song")
     async def pause(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -156,6 +192,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="resume", description="Resumes the current song")
     async def resume(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -168,6 +207,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="stop", description="Stops the music and clears the queue")
     async def stop(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
@@ -181,6 +223,9 @@ class Music(commands.Cog):
 
     @app_commands.command(name="loop", description="Toggles loop mode for the current song")
     async def loop(self, interaction: discord.Interaction):
+        if not interaction.guild:
+            return await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
+
         if not interaction.guild.voice_client:
             return await interaction.response.send_message("I'm not connected to a voice channel!", ephemeral=True)
 
