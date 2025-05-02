@@ -14,10 +14,16 @@ import textwrap  # For formatting warning messages
 LAVALINK_VERSION = "4.0.8"  # <-- Set desired Lavalink Version
 REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 
-# --- YouTube Plugin Configuration (Using User Provided URL) ---
-PLUGIN_VERSION = "1.13.0" # Version from the provided URL
-PLUGIN_JAR_NAME = "youtube-plugin-1.13.0.jar" # Filename from the provided URL
-DIRECT_PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-plugin-1.13.0.jar"
+# --- YouTube Plugin Configuration ---
+# IMPORTANT: Check the plugin releases page for the latest version compatible with Lavalink v4.0.8
+# e.g., https://github.com/lavalink-devs/youtube-source/releases
+# Latest version as of checking: 1.13.0 (requires Lavalink 4.0.7+)
+PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version
+PLUGIN_NAME = "youtube-plugin" # <-- Use the name as found in GitHub releases
+# Construct JAR name based on official releases (e.g., youtube-1.3.0.jar)
+PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar" #<-- Correct format
+# Direct URL to the plugin
+PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-plugin-1.13.0.jar"
 # --- End Configuration ---
 
 LAVALINK_DIR = "lavalink"
@@ -200,7 +206,7 @@ def setup_lavalink():
          print(f"Lavalink configuration ({CONFIG_NAME}) already exists.")
 
     # --- Setup YouTube Plugin using Direct URL ---
-    plugin_url = DIRECT_PLUGIN_URL
+    plugin_url = PLUGIN_URL
     plugin_downloaded = False
 
     if not os.path.exists(PLUGIN_JAR_PATH):
