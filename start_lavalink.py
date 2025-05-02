@@ -19,11 +19,11 @@ REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 # e.g., https://github.com/lavalink-devs/youtube-source/releases
 # Latest version as of checking: 1.13.0 (requires Lavalink 4.0.7+)
 PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version
-PLUGIN_NAME = "youtube-plugin" # <-- Use the name as found in GitHub releases
+PLUGIN_NAME = "youtube-v2" # <-- Use the name as found in GitHub releases
 # Construct JAR name based on official releases (e.g., youtube-1.3.0.jar)
 PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar" #<-- Correct format
 # Direct URL to the plugin
-PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-plugin-1.13.0.jar"
+PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-v2-1.13.0.jar"
 # --- End Configuration ---
 
 LAVALINK_DIR = "lavalink"
