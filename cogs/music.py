@@ -360,7 +360,6 @@ class Music(commands.Cog):
     @app_commands.command(name="play", description="Plays a song/playlist or adds it to the queue (YouTube, SoundCloud, Spotify).")
     @app_commands.describe(query='URL (YouTube, SoundCloud, Spotify) or search term (defaults to YouTube search)')
     async def play(self, interaction: discord.Interaction, *, query: str):
-
         # Ensure user is in a voice channel
         if not interaction.user.voice or not interaction.user.voice.channel:
             return await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
@@ -415,37 +414,47 @@ class Music(commands.Cog):
             search_query = query.strip('<>')
             load_type_log = "query"
 
+            # --- Determine search type (keep this logic) ---
             if URL_REGEX.match(search_query):
                 if SPOTIFY_REGEX.match(search_query): load_type_log = "Spotify URL"
                 elif SOUNDCLOUD_REGEX.match(search_query): load_type_log = "SoundCloud URL"
                 else: load_type_log = "Generic URL"
+                # No prefix needed for URLs
             else:
-                search_query = f"ytsearch:{search_query}"
+                search_query = f"ytsearch:{search_query}" # Default to YouTube search
                 load_type_log = "YouTube Search"
 
             logger.info(f"[{interaction.guild.name}] Getting tracks for: '{search_query}' ({load_type_log})")
             results: LoadResult = await player.node.get_tracks(search_query)
             logger.debug(f"LoadResult: Type={results.load_type}, Playlist={results.playlist_info}, Tracks={len(results.tracks)}")
 
-            # Validate results
-            if results.load_type in (LoadType.LOAD_FAILED, LoadType.NO_MATCHES) or not results.tracks:
-                 error_cause = results.cause if results.load_type == LoadType.LOAD_FAILED else "No matches found"
-                 message = f"Failed to load tracks: {error_cause}" if results.load_type == LoadType.LOAD_FAILED else f"Could not find any results for `{query}`."
+            # --- UPDATED: Validate results using likely correct enum names ---
+            if results.load_type == LoadType.ERROR: # Use ERROR instead of LOAD_FAILED
+                 # Safely get the error cause if the attribute exists
+                 error_cause = getattr(results, 'cause', "Unknown Lavalink error")
+                 message = f"Failed to load tracks: {error_cause}"
                  logger.warning(f"{message} (Query: {search_query})")
+                 await interaction.followup.send(message, ephemeral=True)
+                 return
+            # Use EMPTY for no matches, also check if tracks list is empty just in case
+            elif results.load_type == LoadType.EMPTY or not results.tracks:
+                 message = f"Could not find any results for `{query}`."
+                 logger.warning(f"{message} (Query: {search_query}, LoadType: {results.load_type})")
                  await interaction.followup.send(message, ephemeral=True)
                  return
 
             # Enforce Queue Size Limit
             current_queue_size = len(player.queue)
-            max_queue = int(os.getenv('MAX_QUEUE_SIZE', 1000)) 
+            max_queue = int(os.getenv('MAX_QUEUE_SIZE', 1000)) # Read from env
 
             added_count = 0
             skipped_count = 0
             message = ""
 
-            if results.load_type == LoadType.PLAYLIST_LOADED:
+            # --- UPDATED: Process results using likely correct enum names ---
+            if results.load_type == LoadType.PLAYLIST: # Use PLAYLIST instead of PLAYLIST_LOADED
                 playlist_name = results.playlist_info.name or "Unnamed Playlist"
-                max_playlist = int(os.getenv('MAX_PLAYLIST_SIZE', 100)) 
+                max_playlist = int(os.getenv('MAX_PLAYLIST_SIZE', 100)) # Read from env
 
                 tracks_to_consider = results.tracks[:max_playlist]
 
@@ -460,15 +469,23 @@ class Music(commands.Cog):
                 if skipped_count > 0: message += f" (Queue full, skipped {skipped_count})"
                 logger.info(f"Added {added_count}/{len(tracks_to_consider)} tracks from playlist '{playlist_name}' for {interaction.user}. Skipped {skipped_count}.")
 
-            elif results.load_type in [LoadType.TRACK_LOADED, LoadType.SEARCH_RESULT]:
+            # Use TRACK and SEARCH instead of TRACK_LOADED and SEARCH_RESULT
+            # Treat SEARCH result same as TRACK (add the first found track)
+            elif results.load_type in [LoadType.TRACK, LoadType.SEARCH]:
                 track = results.tracks[0]
                 if current_queue_size < max_queue:
                      player.add(requester=interaction.user.id, track=track)
                      message = f"✅ Added **`{discord.utils.escape_markdown(track.title)}`** to the queue."
-                     logger.info(f"Added track '{track.title}' for {interaction.user}")
+                     logger.info(f"Added track '{track.title}' for {interaction.user} (LoadType: {results.load_type})")
                 else:
                      message = f"❌ Queue is full (Max: {max_queue}). Could not add **`{discord.utils.escape_markdown(track.title)}`**."
                      logger.warning(f"Queue full. Skipped track '{track.title}' for {interaction.user}")
+            else:
+                # Fallback for any unexpected load types
+                logger.warning(f"Unhandled LoadType '{results.load_type}' for query '{search_query}'")
+                await interaction.followup.send(f"Received an unexpected result type ({results.load_type}). Cannot process.", ephemeral=True)
+                return # Stop processing if type is unknown
+
 
             # Send confirmation
             await interaction.followup.send(message)
@@ -483,10 +500,18 @@ class Music(commands.Cog):
              logger.error(f"Lavalink RequestError in play command: {e}", exc_info=True)
              await interaction.followup.send(f"Error communicating with Lavalink node: {e}", ephemeral=True)
         except Exception as e:
-            message = f"An unexpected error occurred: {e}"
+            message = f"An unexpected error occurred processing your request: {e}"
             logger.exception(f"Unexpected error in play command for query '{query}': {e}")
-            try: await interaction.followup.send(message, ephemeral=True)
-            except discord.HTTPException: pass
+            # Avoid sending the raw error message directly to the user in production
+            # message = "An unexpected internal error occurred."
+            try:
+                # Check if followup exists before sending
+                if interaction.followup:
+                     await interaction.followup.send(message, ephemeral=True)
+                else: # If defer wasn't called successfully? Fallback needed.
+                     await interaction.response.send_message(message, ephemeral=True)
+            except discord.HTTPException:
+                pass # Ignore if sending fails
 
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel.")
