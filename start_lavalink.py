@@ -296,39 +296,6 @@ def start_lavalink():
         print(f" - Found Spotify Plugin: {SPOTIFY_PLUGIN_JAR_NAME}")
     print("-" * 30)
 
-    java_command = [
-        "java",
-        "-Dlogging.level.lavalink=INFO",
-        "-Dlogging.level.dev.lavalink.jda=INFO",
-        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=INFO",
-        "-Dlogging.level.lavalink.plugins.youtube=DEBUG",
-        "-Dlogging.level.dev.kaan.lavasrc=DEBUG",
-        "-jar",
-        JAR_NAME
-    ]
-
-    try:
-        process = subprocess.run(
-            java_command,
-            cwd=LAVALINK_DIR,
-            check=False
-        )
-        print(f"\nLavalink process finished with exit code: {process.returncode}")
-        if process.returncode != 0:
-            print("Lavalink may have exited unexpectedly. Check the logs above.")
-
-    except KeyboardInterrupt:
-        print("\nLavalink stopped by user (Ctrl+C).")
-    except FileNotFoundError:
-         print(f"Error: Could not execute 'java'. Is Java installed and in PATH?")
-         print(f"Attempted command: {' '.join(java_command)}")
-         print(f"Working directory: {LAVALINK_DIR}")
-         sys.exit("Failed to start Lavalink: Java not found.")
-    except Exception as e:
-        print(f"An unexpected error occurred while trying to run Lavalink: {e}")
-        sys.exit("Failed to start Lavalink.")
-
-def main():
     # Load environment variables from .env file
     load_dotenv()
     
@@ -343,37 +310,21 @@ def main():
     # Export Spotify credentials to environment
     os.environ['SPOTIFY_CLIENT_ID'] = spotify_client_id
     os.environ['SPOTIFY_CLIENT_SECRET'] = spotify_client_secret
-    
-    # Get Java path from environment variable or use default
-    java_path = os.getenv('JAVA_PATH', 'java')
-    
-    # Get Lavalink JAR path from environment variable or use default
-    lavalink_jar = os.getenv('LAVALINK_JAR', 'Lavalink.jar')
-    
-    # Check if Lavalink JAR exists
-    if not os.path.exists(lavalink_jar):
-        print(f"Error: {lavalink_jar} not found")
-        sys.exit(1)
-    
-    # Build the command
-    cmd = [
-        java_path,
-        '-jar',
-        lavalink_jar
+
+    java_command = [
+        "java",
+        "-Dlogging.level.lavalink=INFO",
+        "-Dlogging.level.dev.lavalink.jda=INFO",
+        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=INFO",
+        "-Dlogging.level.lavalink.plugins.youtube=DEBUG",
+        "-Dlogging.level.dev.kaan.lavasrc=DEBUG",
+        "-jar",
+        JAR_PATH  # Use the full path to the JAR
     ]
-    
-    # Add additional Java options if specified
-    java_opts = os.getenv('JAVA_OPTS')
-    if java_opts:
-        cmd[1:1] = java_opts.split()
-    
-    print(f"Starting Lavalink with command: {' '.join(cmd)}")
-    print(f"Using Spotify Client ID: {spotify_client_id[:5]}...")
-    
+
     try:
-        # Start Lavalink
         process = subprocess.Popen(
-            cmd,
+            java_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             universal_newlines=True
@@ -390,9 +341,13 @@ def main():
         print("\nStopping Lavalink...")
         process.terminate()
         process.wait()
+    except FileNotFoundError:
+         print(f"Error: Could not execute 'java'. Is Java installed and in PATH?")
+         print(f"Attempted command: {' '.join(java_command)}")
+         sys.exit("Failed to start Lavalink: Java not found.")
     except Exception as e:
-        print(f"Error starting Lavalink: {e}")
-        sys.exit(1)
+        print(f"An unexpected error occurred while trying to run Lavalink: {e}")
+        sys.exit("Failed to start Lavalink.")
 
 if __name__ == "__main__":
-    main()
+    start_lavalink()
