@@ -1,11 +1,11 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import lavalink # Use the standalone lavalink library
-from lavalink.events import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent
-from lavalink.models import DefaultPlayer, AudioTrack, LoadResult, LoadType
-from lavalink.errors import PlayerError, NodeError
-from lavalink.filters import LowPass # Keep filter import
+import lavalink
+from lavalink import DefaultPlayer, AudioTrack, LoadResult, LoadType
+from lavalink import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent
+from lavalink import PlayerError, NodeError
+from lavalink import LowPass  # Keep filter import
 
 import logging
 import re
