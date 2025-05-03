@@ -7,6 +7,7 @@ import platform
 import re
 import shutil
 import textwrap  # For formatting warning messages
+from dotenv import load_dotenv
 
 # --- Configuration ---
 # Check the Lavalink releases page for the latest stable v4 version:
@@ -327,5 +328,71 @@ def start_lavalink():
         print(f"An unexpected error occurred while trying to run Lavalink: {e}")
         sys.exit("Failed to start Lavalink.")
 
+def main():
+    # Load environment variables from .env file
+    load_dotenv()
+    
+    # Get Spotify credentials from .env
+    spotify_client_id = os.getenv('SPOTIFY_CLIENT_ID')
+    spotify_client_secret = os.getenv('SPOTIFY_CLIENT_SECRET')
+    
+    if not spotify_client_id or not spotify_client_secret:
+        print("Error: SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET must be set in .env file")
+        sys.exit(1)
+    
+    # Export Spotify credentials to environment
+    os.environ['SPOTIFY_CLIENT_ID'] = spotify_client_id
+    os.environ['SPOTIFY_CLIENT_SECRET'] = spotify_client_secret
+    
+    # Get Java path from environment variable or use default
+    java_path = os.getenv('JAVA_PATH', 'java')
+    
+    # Get Lavalink JAR path from environment variable or use default
+    lavalink_jar = os.getenv('LAVALINK_JAR', 'Lavalink.jar')
+    
+    # Check if Lavalink JAR exists
+    if not os.path.exists(lavalink_jar):
+        print(f"Error: {lavalink_jar} not found")
+        sys.exit(1)
+    
+    # Build the command
+    cmd = [
+        java_path,
+        '-jar',
+        lavalink_jar
+    ]
+    
+    # Add additional Java options if specified
+    java_opts = os.getenv('JAVA_OPTS')
+    if java_opts:
+        cmd[1:1] = java_opts.split()
+    
+    print(f"Starting Lavalink with command: {' '.join(cmd)}")
+    print(f"Using Spotify Client ID: {spotify_client_id[:5]}...")
+    
+    try:
+        # Start Lavalink
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            universal_newlines=True
+        )
+        
+        # Print output in real-time
+        for line in process.stdout:
+            print(line, end='')
+            
+        # Wait for process to complete
+        process.wait()
+        
+    except KeyboardInterrupt:
+        print("\nStopping Lavalink...")
+        process.terminate()
+        process.wait()
+    except Exception as e:
+        print(f"Error starting Lavalink: {e}")
+        sys.exit(1)
+
 if __name__ == "__main__":
-    start_lavalink()
+    main()
