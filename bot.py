@@ -63,52 +63,37 @@ bot = commands.Bot(command_prefix=DEFAULT_PREFIX, intents=intents) # Keep prefix
 
 @bot.event
 async def on_ready():
-    """ Executes when the bot is ready and connected to Discord. """
-    logger.info(f'Logged in as {bot.user.name} (ID: {bot.user.id})')
-    logger.info(f'discord.py version: {discord.__version__}')
-    logger.info(f'lavalink version: {lavalink.__version__}')
+    """Called when the bot is ready"""
+    logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    logger.info("------")
 
-    # Use Client ID from env or fallback to bot's ID
-    lavalink_client_id = CLIENT_ID or str(bot.user.id)
+    # Initialize Lavalink client
+    bot.lavalink = lavalink.Client(bot.user.id)
+    
+    # Add Lavalink nodes from environment variables
+    lavalink_nodes = [
+        {
+            "host": os.getenv("LAVALINK_HOST", "localhost"),
+            "port": int(os.getenv("LAVALINK_PORT", "2333")),
+            "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
+            "region": os.getenv("LAVALINK_REGION", "us"),
+            "name": "default-node"
+        }
+    ]
+    
+    for node in lavalink_nodes:
+        try:
+            await bot.lavalink.add_node(**node)
+            logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
+        except Exception as e:
+            logger.error(f"Failed to add Lavalink node: {e}")
 
-    # Initialize Lavalink client here
-    if not hasattr(bot, 'lavalink'): # Initialize only once
-        logger.info("Initializing Lavalink Client...")
-        bot.lavalink = lavalink.Client(lavalink_client_id)
-
-        # Add Lavalink nodes from environment variables
-        lavalink_nodes = [
-            {
-                "host": os.getenv("LAVALINK_HOST", "localhost"),
-                "port": int(os.getenv("LAVALINK_PORT", "2333")),
-                "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
-                "region": os.getenv("LAVALINK_REGION", "us"),
-                "resume_key": os.getenv("LAVALINK_RESUME_KEY", "default"),
-                "resume_timeout": int(os.getenv("LAVALINK_RESUME_TIMEOUT", "60")),
-                "reconnect_attempts": int(os.getenv("LAVALINK_RECONNECT_ATTEMPTS", "3")),
-            }
-        ]
-        
-        for node in lavalink_nodes:
-            try:
-                await bot.lavalink.add_node(**node)
-                logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
-            except Exception as e:
-                logger.error(f"Failed to add Lavalink node: {e}")
-
-        # IMPORTANT: Hook Lavalink into discord.py's voice event handling
-        bot.add_listener(bot.lavalink.voice_update_handler, 'on_socket_response')
-        logger.info("Lavalink voice update handler registered.")
-
+    # Sync slash commands
     try:
-        logger.info("Attempting to sync application commands...")
         synced = await bot.tree.sync()
-        if synced:
-            logger.info(f"Successfully synced {len(synced)} application commands.")
-        else:
-            logger.warning("No application commands were synced. Check bot permissions and command definitions.")
+        logger.info(f"Synced {len(synced)} command(s)")
     except Exception as e:
-        logger.error(f"Error syncing application commands: {e}", exc_info=True)
+        logger.error(f"Failed to sync commands: {e}")
 
     logger.info("Bot is ready and Lavalink connection prepared.")
     await bot.change_presence(activity=discord.Game(name="Music! /play"))
@@ -157,9 +142,7 @@ async def main():
             "port": int(os.getenv("LAVALINK_PORT", "2333")),
             "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
             "region": os.getenv("LAVALINK_REGION", "us"),
-            "resume_key": os.getenv("LAVALINK_RESUME_KEY", "default"),
-            "resume_timeout": int(os.getenv("LAVALINK_RESUME_TIMEOUT", "60")),
-            "reconnect_attempts": int(os.getenv("LAVALINK_RECONNECT_ATTEMPTS", "3")),
+            "name": "default-node"
         }
     ]
     
