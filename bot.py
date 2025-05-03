@@ -55,7 +55,7 @@ intents.voice_states = True  # Required for voice channel state tracking
 intents.message_content = True  # Required for message content
 intents.guilds = True  # Required for guild data
 intents.members = True  # Required for member data
-intents.guild_voice_states = True  # Required for voice state updates
+intents.voice_states = True  # Required for voice state updates
 intents.guild_messages = True  # Required for message events
 
 bot = commands.Bot(command_prefix=DEFAULT_PREFIX, intents=intents)
