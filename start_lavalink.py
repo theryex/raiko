@@ -15,15 +15,20 @@ LAVALINK_VERSION = "4.0.8"  # <-- Set desired Lavalink Version
 REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
 
 # --- YouTube Plugin Configuration ---
-# IMPORTANT: Check the plugin releases page for the latest version compatible with Lavalink v4.0.8
-# e.g., https://github.com/lavalink-devs/youtube-source/releases
-# Latest version as of checking: 1.13.0 (requires Lavalink 4.0.7+)
-PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version
-PLUGIN_NAME = "youtube-plugin" # <-- Use the name as found in GitHub releases
-# Construct JAR name based on official releases (e.g., youtube-1.3.0.jar)
-PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar" #<-- Correct format
-# Direct URL to the plugin
-PLUGIN_URL = "https://github.com/lavalink-devs/youtube-source/releases/download/1.13.0/youtube-plugin-1.13.0.jar"
+# https://github.com/lavalink-devs/youtube-source/releases
+PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version for Lavalink 4.0.8
+PLUGIN_NAME = "youtube-plugin"
+PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar"
+PLUGIN_URL = f"https://github.com/lavalink-devs/youtube-source/releases/download/{PLUGIN_VERSION}/{PLUGIN_JAR_NAME}"
+
+# --- Spotify Plugin Configuration (Lavasrc) ---
+# Check Lavasrc releases for compatibility with Lavalink v4:
+# https://github.com/topi314/LavaSrc/releases
+# Using Lavasrc 4.0.0 as it's built for Lavalink v4
+SPOTIFY_PLUGIN_NAME = "lavasrc-plugin"
+SPOTIFY_PLUGIN_VERSION = "4.0.0" # <-- Use a compatible version
+SPOTIFY_PLUGIN_JAR_NAME = f"LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar" # <-- Check release asset name
+SPOTIFY_PLUGIN_URL = f"https://github.com/topi314/LavaSrc/releases/download/{SPOTIFY_PLUGIN_VERSION}/LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar"
 # --- End Configuration ---
 
 LAVALINK_DIR = "lavalink"
@@ -34,7 +39,8 @@ PLUGINS_DIR = os.path.join(LAVALINK_DIR, "plugins") # Standard directory for Lav
 
 JAR_PATH = os.path.join(LAVALINK_DIR, JAR_NAME)
 CONFIG_PATH = os.path.join(LAVALINK_DIR, CONFIG_NAME)
-PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, PLUGIN_JAR_NAME) # Path uses the specific JAR name
+PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, PLUGIN_JAR_NAME)
+SPOTIFY_PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, SPOTIFY_PLUGIN_JAR_NAME)
 
 def get_lavalink_urls(version):
     """Gets the download URLs for the JAR and example config for a specific version."""
@@ -42,8 +48,6 @@ def get_lavalink_urls(version):
     jar_url = base_url + JAR_NAME
     config_url = f"https://raw.githubusercontent.com/lavalink-devs/Lavalink/{version}/LavalinkServer/{EXAMPLE_CONFIG_NAME}"
     return jar_url, config_url
-
-# Removed get_plugin_url function as it's no longer needed for direct URL
 
 def download_file(url, destination_path, description):
     """Downloads a file from a URL to a destination path."""
@@ -176,17 +180,20 @@ def check_plugin_config(config_file_path):
         print(f"Error reading or checking config file '{config_file_path}': {e}")
         return False
 
-
 def setup_lavalink():
-    """Downloads Lavalink JAR, config, and YouTube plugin if they don't exist."""
-    # --- Setup Main Lavalink ---
+    """Downloads Lavalink JAR, config, and required plugins if they don't exist."""
+    os.makedirs(LAVALINK_DIR, exist_ok=True)
+    os.makedirs(PLUGINS_DIR, exist_ok=True)
+
     jar_url, config_url = get_lavalink_urls(LAVALINK_VERSION)
     config_example_path = os.path.join(LAVALINK_DIR, EXAMPLE_CONFIG_NAME)
-    config_downloaded = False
+    files_downloaded = False
 
+    # --- Setup Main Lavalink ---
     if not os.path.exists(JAR_PATH):
         if not download_file(jar_url, JAR_PATH, f"Lavalink v{LAVALINK_VERSION} JAR"):
             return False
+        files_downloaded = True
     else:
         print(f"Lavalink JAR ({JAR_NAME}) already exists.")
 
@@ -194,50 +201,67 @@ def setup_lavalink():
         print(f"{CONFIG_NAME} not found.")
         if not download_file(config_url, config_example_path, "Lavalink example configuration"):
             print("Failed to download example configuration. Cannot create application.yml.")
+            if os.path.exists(config_example_path) and os.path.getsize(config_example_path) == 0:
+                os.remove(config_example_path)
             return False
         try:
             shutil.move(config_example_path, CONFIG_PATH)
             print(f"Created {CONFIG_NAME} from example.")
-            config_downloaded = True
+            files_downloaded = True
         except OSError as e:
             print(f"Error moving example config: {e}")
             return False
     else:
          print(f"Lavalink configuration ({CONFIG_NAME}) already exists.")
 
-    # --- Setup YouTube Plugin using Direct URL ---
-    plugin_url = PLUGIN_URL
-    plugin_downloaded = False
-
+    # --- Setup YouTube Plugin ---
     if not os.path.exists(PLUGIN_JAR_PATH):
         print(f"YouTube Plugin JAR ({PLUGIN_JAR_NAME}) not found.")
-        # Attempt download using the direct URL
-        if not download_file(plugin_url, PLUGIN_JAR_PATH, f"YouTube Plugin v{PLUGIN_VERSION} JAR"):
-             print("Continuing without YouTube plugin download.")
+        if not download_file(PLUGIN_URL, PLUGIN_JAR_PATH, f"YouTube Plugin v{PLUGIN_VERSION} JAR"):
+             print("Continuing without YouTube plugin download (may cause issues).")
         else:
-             plugin_downloaded = True
+             files_downloaded = True
     else:
         print(f"YouTube Plugin JAR ({PLUGIN_JAR_NAME}) already exists.")
 
-    # --- Check Configuration for Plugin ---
-    if os.path.exists(PLUGIN_JAR_PATH):
-        if config_downloaded or plugin_downloaded:
+    # --- Setup Spotify Plugin (Lavasrc) ---
+    if not os.path.exists(SPOTIFY_PLUGIN_JAR_PATH):
+        print(f"Spotify Plugin JAR ({SPOTIFY_PLUGIN_JAR_NAME}) not found.")
+        if not download_file(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, f"Spotify Plugin (Lavasrc) v{SPOTIFY_PLUGIN_VERSION} JAR"):
+             print("Continuing without Spotify plugin download (Spotify links won't work).")
+        else:
+             files_downloaded = True
+    else:
+        print(f"Spotify Plugin JAR ({SPOTIFY_PLUGIN_JAR_NAME}) already exists.")
+
+    # --- Check Configuration for Plugins ---
+    plugin_jars_present = os.path.exists(PLUGIN_JAR_PATH) or os.path.exists(SPOTIFY_PLUGIN_JAR_PATH)
+
+    if plugin_jars_present:
+        if files_downloaded:
              print("\n" + "="*50)
-             print("ACTION REQUIRED: Lavalink config or YouTube plugin was just downloaded.")
-             print(f"Please review '{CONFIG_PATH}' and ensure it's configured correctly for the YouTube plugin:")
-             print("  1. Disable built-in source: Set `lavalink.server.sources.youtube` to `false`.")
-             print("  2. Add/configure the `plugins:` block at the root level with `youtube:` under it.")
-             print("See plugin documentation for details on options within the 'plugins:' block.")
-             print("You may need to stop this script, edit the file, and restart.")
+             print("ACTION REQUIRED: Lavalink/Config/Plugins were downloaded or updated.")
+             print(f"Please review '{CONFIG_PATH}' and ensure it's configured correctly:")
+             print("  1. Set Lavalink `server.password` (must match bot's .env).")
+             print("  2. Disable built-in source: `lavalink.server.sources.youtube: false`.")
+             print("  3. Enable built-in source: `lavalink.server.sources.soundcloud: true`.")
+             print("  4. Configure `plugins:` block at the root level:")
+             print("     - Add `youtube:` block if needed (can be empty if defaults are ok).")
+             print("     - Add `lavasrc:` block with your Spotify `clientId` and `clientSecret`.")
+             print("     (See plugin documentation for details and other options)")
+             print("You may need to stop this script (Ctrl+C), edit the file, and restart.")
              print("="*50 + "\n")
-             input("Press Enter to continue starting Lavalink (or Ctrl+C to stop and edit config)...")
+             try:
+                 input("Press Enter to continue starting Lavalink (or Ctrl+C to stop and edit config)...")
+             except KeyboardInterrupt:
+                 print("\nExiting script to allow config editing.")
+                 sys.exit(0)
         else:
              check_plugin_config(CONFIG_PATH)
     else:
-        print("YouTube Plugin JAR not found, skipping configuration check.")
+        print("No plugin JARs found in the plugins directory. Functionality will be limited.")
 
     return True
-
 
 def start_lavalink():
     """Checks Java, sets up Lavalink files, and starts the server."""
@@ -256,23 +280,28 @@ def start_lavalink():
     if not setup_lavalink():
         sys.exit("Lavalink setup failed. Please check errors above.")
 
-    if not check_plugin_config(CONFIG_PATH):
-        print("Warning: Lavalink configuration may not be properly set up for the YouTube plugin.")
+    if not check_plugin_config(CONFIG_PATH) and os.path.exists(CONFIG_PATH):
+         print("Exiting due to critical configuration issues detected.")
+         sys.exit(1)
 
     print("-" * 30)
-    print(f"Attempting to start Lavalink v{LAVALINK_VERSION} with Plugin {PLUGIN_JAR_NAME} (if present)...")
+    print(f"Attempting to start Lavalink v{LAVALINK_VERSION}...")
     print(f"Using JAR: {JAR_PATH}")
     print(f"Using Config: {CONFIG_PATH}")
+    print(f"Plugins Directory: {PLUGINS_DIR}")
     if os.path.exists(PLUGIN_JAR_PATH):
-        print(f"Using Plugin: {PLUGIN_JAR_PATH}")
+        print(f" - Found YouTube Plugin: {PLUGIN_JAR_NAME}")
+    if os.path.exists(SPOTIFY_PLUGIN_JAR_PATH):
+        print(f" - Found Spotify Plugin: {SPOTIFY_PLUGIN_JAR_NAME}")
     print("-" * 30)
 
-    # --- Start Lavalink with Debug Flags ---
     java_command = [
         "java",
-        "-Dlogging.level.lavalink=DEBUG",
-        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG",
+        "-Dlogging.level.lavalink=INFO",
+        "-Dlogging.level.dev.lavalink.jda=INFO",
+        "-Dlogging.level.com.sedmelluq.discord.lavaplayer=INFO",
         "-Dlogging.level.lavalink.plugins.youtube=DEBUG",
+        "-Dlogging.level.dev.kaan.lavasrc=DEBUG",
         "-jar",
         JAR_NAME
     ]
@@ -283,12 +312,19 @@ def start_lavalink():
             cwd=LAVALINK_DIR,
             check=False
         )
-        print(f"Lavalink process finished with exit code: {process.returncode}")
+        print(f"\nLavalink process finished with exit code: {process.returncode}")
+        if process.returncode != 0:
+            print("Lavalink may have exited unexpectedly. Check the logs above.")
 
     except KeyboardInterrupt:
-        print("\nLavalink stopped by user.")
+        print("\nLavalink stopped by user (Ctrl+C).")
+    except FileNotFoundError:
+         print(f"Error: Could not execute 'java'. Is Java installed and in PATH?")
+         print(f"Attempted command: {' '.join(java_command)}")
+         print(f"Working directory: {LAVALINK_DIR}")
+         sys.exit("Failed to start Lavalink: Java not found.")
     except Exception as e:
-        print(f"An error occurred while trying to run Lavalink: {e}")
+        print(f"An unexpected error occurred while trying to run Lavalink: {e}")
         sys.exit("Failed to start Lavalink.")
 
 if __name__ == "__main__":

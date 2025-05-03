@@ -1,37 +1,93 @@
+# Server configuration (Port, Address) - Ensure these match your bot's .env
 server:
   port: 2333
   address: 127.0.0.1
+
+# Spring Boot settings (usually fine as is)
 spring:
   main:
-    banner-mode: log
+    banner-mode: log # Optional: 'off' to disable the Spring Boot banner
+
+# Lavalink server core settings
 lavalink:
   server:
-    password: "youshallnotpass"
+    password: "youshallnotpass" # IMPORTANT: Must match LAVALINK_PASSWORD in your .env
     sources:
-      youtube: false  # Disable built-in YouTube source
-      bandcamp: true
+      # Disable sources handled by plugins
+      youtube: false
+      # Enable desired built-in sources
       soundcloud: true
+      bandcamp: true
       twitch: true
       vimeo: true
       http: true
-      local: false
+      local: false # Keep local disabled for security unless specifically needed
+    # Other optional Lavalink settings (defaults are often fine)
     bufferDurationMs: 400
-    youtubePlaylistLoadLimit: 6
-    playerUpdateInterval: 5
-    youtubeSearchEnabled: true
-    soundcloudSearchEnabled: true
-    gc-warnings: true
-    plugins:
-      - dependency: "dev.lavalink.youtube:youtube-plugin:1.13.0"
-        snapshot: false
+    # youtubePlaylistLoadLimit: 6 # This applies to the *built-in* source, less relevant when disabled
+    playerUpdateInterval: 5 # In seconds
+    # youtubeSearchEnabled: true # Also for built-in source, plugin handles its own searching
+    soundcloudSearchEnabled: true # Keep true if you want Lavalink's scsearch: to work
+    gc-warnings: true # Logs Java garbage collection warnings
 
+# --- Lavalink v4 Plugin Configuration ---
+# Plugins listed here are configured *after* being loaded from the /plugins JAR directory
 plugins:
+  # YouTube Plugin (lavalink-devs/youtube-source) Configuration
   youtube:
-    enabled: true  # Enable the YouTube plugin
-    allowSearch: true
-    allowDirectVideoIds: true
-    allowDirectPlaylistIds: true
-    clients:
-      - MUSIC
-      - WEB
-      - ANDROID_TESTSUITE
+    enabled: true # Master switch for the plugin
+    # Add any specific YouTube plugin settings here if needed
+    # Default clients used by the plugin are usually sufficient
+    # clients:
+    #   - MUSIC
+    #   - WEB
+    #   - ANDROID
+
+  # Lavasrc Plugin (Spotify, Apple Music, Deezer) Configuration
+  lavasrc:
+    # List of providers to load music from (Spotify is default if section exists)
+    providers:
+      # Explicitly list enabled providers if you want fine control, otherwise defaults are used
+      - spotify # Requires clientId and clientSecret below
+      # - applemusic # Enable if needed and configured
+      # - deezer # Enable if needed and configured (may require master key)
+
+    # Spotify specific settings
+    spotify:
+      clientId: ${SPOTIFY_CLIENT_ID} # MUST be set as SYSTEM ENV VAR before starting Lavalink
+      clientSecret: ${SPOTIFY_CLIENT_SECRET} # MUST be set as SYSTEM ENV VAR before starting Lavalink
+      countryCode: "US" # Optional: Use your country code to potentially bypass region locks
+      playlistLoadLimit: 100 # Max tracks to load from a playlist
+      albumLoadLimit: 100    # Max tracks to load from an album
+      # searchLimit: 10 # Max results for Spotify search (if plugin supports it)
+      # cacheEnabled: true # Lavasrc internal caching (recommended)
+      # cacheSize: 1000
+      # cacheExpiry: 3600 # Seconds (1 hour)
+
+    # Apple Music specific settings (Optional - remove if not used)
+#    applemusic:
+#      countryCode: "US"
+      # mediaAPIToken: ${APPLE_MEDIA_API_TOKEN} # Requires separate token if needed
+#      playlistLoadLimit: 100
+#      albumLoadLimit: 100
+      # searchLimit: 10
+      # cacheEnabled: true
+      # cacheSize: 1000
+      # cacheExpiry: 3600
+
+    # Deezer specific settings (Optional - remove if not used)
+#    deezer:
+      # masterDecryptionKey: ${DEEZER_MASTER_KEY} # Required for some functionality
+#      playlistLoadLimit: 100
+#      albumLoadLimit: 100
+      # searchLimit: 10
+      # cacheEnabled: true
+      # cacheSize: 1000
+      # cacheExpiry: 3600
+
+# Logging configuration (Optional - Fine-tune Lavalink's logging)
+# logging:
+#   level:
+#     lavalink: INFO # Default is INFO
+#     dev.lavalink.youtube: DEBUG # Set specific plugin log levels
+#     dev.kaan.lavasrc: DEBUG
