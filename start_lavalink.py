@@ -83,97 +83,75 @@ def download_file(url, destination_path, description):
 # --- Java Version Check Function REMOVED ---
 
 def check_plugin_config(config_file_path):
-    """Checks if application.yml seems configured correctly for YouTube and Spotify plugins."""
+    """Checks application.yml for common critical plugin configuration issues."""
     if not os.path.exists(config_file_path):
         print(f"Warning: Config file '{config_file_path}' not found for checking plugin settings.")
-        return False # Cannot check
+        return True # Cannot check, assume ok for now
 
-    print(f"Checking '{config_file_path}' for common plugin configuration issues...")
+    print(f"Checking '{config_file_path}' for critical plugin configuration issues...")
     config_ok = True
     warnings = []
 
     try:
-        with open(config_file_path, 'r', encoding='utf-8') as f: # Specify encoding
+        with open(config_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        # --- Check YouTube Plugin Settings ---
+        # --- Check YouTube Plugin Settings (Only check for built-in conflict) ---
         youtube_plugin_present = os.path.exists(PLUGIN_JAR_PATH)
         if youtube_plugin_present:
-            # 1. Check if built-in YT source is disabled
-            built_in_yt_enabled = re.search(r"^\s*youtube:\s*true", content, re.MULTILINE | re.IGNORECASE) is not None
-            # Handle more complex nested structure
-            built_in_yt_nested_enabled = re.search(r"lavalink:\s*\n.*?\s+server:\s*\n.*?\s+sources:\s*\n.*?\s+youtube:\s*true", content, re.DOTALL | re.IGNORECASE) is not None
-            if built_in_yt_enabled or built_in_yt_nested_enabled:
+            # Check if built-in YT source is explicitly enabled (true) when plugin exists
+            # This is the most critical conflict
+            built_in_yt_nested_enabled = re.search(r"lavalink:\s*\n.*?\s+server:\s*\n.*?\s+sources:\s*\n.*?\s+youtube:\s*true", content, re.DOTALL | re.IGNORECASE)
+            if built_in_yt_nested_enabled:
                 config_ok = False
                 warnings.append(textwrap.dedent("""
-                    Built-in YouTube source MUST be disabled when using the YouTube plugin.
-                    Please ensure 'lavalink.server.sources.youtube' is set to 'false'.
-                    Example:
-                      lavalink:
-                        server:
-                          sources:
-                            youtube: false
+                    Built-in YouTube source MUST be disabled ('false') when using the YouTube plugin.
+                    Found 'lavalink.server.sources.youtube: true'. Please change it to 'false'.
                 """))
 
-            # 2. Check if 'plugins:' block exists and has 'youtube:' entry
-            plugins_block = re.search(r"^\s*plugins:", content, re.MULTILINE)
-            youtube_plugin_entry = re.search(r"^\s*plugins:\s*\n.*?\s+youtube:", content, re.DOTALL | re.IGNORECASE)
-            if not plugins_block or not youtube_plugin_entry:
-                 config_ok = False
-                 warnings.append(textwrap.dedent("""
-                    YouTube plugin block seems missing or incorrectly placed under 'plugins:'.
-                    Please ensure a root-level 'plugins:' block exists with a 'youtube:' entry.
-                    Example:
-                      plugins:
-                        youtube:
-                          enabled: true # Optional, defaults to true if block exists
-                 """))
-
-        # --- Check Spotify Plugin (LavaSrc) Settings ---
+        # --- Check Spotify Plugin Settings (Only check for placeholder variables) ---
         spotify_plugin_present = os.path.exists(SPOTIFY_PLUGIN_JAR_PATH)
         if spotify_plugin_present:
-            # 1. Check if 'plugins:' block exists and has 'lavasrc:' entry
-            plugins_block = re.search(r"^\s*plugins:", content, re.MULTILINE)
-            lavasrc_plugin_entry = re.search(r"^\s*plugins:\s*\n.*?\s+lavasrc:", content, re.DOTALL | re.IGNORECASE)
-            if not plugins_block or not lavasrc_plugin_entry:
-                 config_ok = False
-                 warnings.append(textwrap.dedent("""
-                    LavaSrc plugin block seems missing or incorrectly placed under 'plugins:'.
-                    Please ensure a root-level 'plugins:' block exists with a 'lavasrc:' entry.
-                    Example:
-                      plugins:
-                        lavasrc:
-                          providers:
-                            spotify:
-                              clientId: ${SPOTIFY_CLIENT_ID}
-                              clientSecret: ${SPOTIFY_CLIENT_SECRET}
-                 """))
-            # 2. Check for the environment variable placeholders (doesn't validate the vars themselves)
-            spotify_client_id_placeholder = re.search(r"clientId:\s*\$\{SPOTIFY_CLIENT_ID\}", content)
-            spotify_client_secret_placeholder = re.search(r"clientSecret:\s*\$\{SPOTIFY_CLIENT_SECRET\}", content)
-            if lavasrc_plugin_entry and (not spotify_client_id_placeholder or not spotify_client_secret_placeholder):
-                 config_ok = False # Technically might work if hardcoded, but recommend env vars
-                 warnings.append(textwrap.dedent("""
-                    LavaSrc Spotify configuration should use environment variables.
-                    Please ensure 'clientId' and 'clientSecret' under 'lavasrc.providers.spotify'
-                    are set like this:
-                      clientId: ${SPOTIFY_CLIENT_ID}
-                      clientSecret: ${SPOTIFY_CLIENT_SECRET}
-                    (Ensure these variables are set in your .env file)
-                 """))
+            # Check if the lavasrc block seems to exist using a simpler check
+            lavasrc_block_exists = re.search(r"^\s*lavasrc:", content, re.MULTILINE | re.IGNORECASE) is not None
+            if lavasrc_block_exists:
+                 # Check for the environment variable placeholders inside the file content
+                 # This confirms the user intends to use env vars, even if the block structure check was removed
+                 spotify_client_id_placeholder = "${SPOTIFY_CLIENT_ID}" in content
+                 spotify_client_secret_placeholder = "${SPOTIFY_CLIENT_SECRET}" in content
+                 if not spotify_client_id_placeholder or not spotify_client_secret_placeholder:
+                      # This is less critical but good practice
+                      warnings.append(textwrap.dedent("""
+                        [Optional but Recommended] LavaSrc Spotify configuration should use environment variables.
+                        Consider changing hardcoded clientId/clientSecret to:
+                          clientId: ${SPOTIFY_CLIENT_ID}
+                          clientSecret: ${SPOTIFY_CLIENT_SECRET}
+                        (Ensure these variables are set in your .env file)
+                      """))
+            # Note: We removed the check for the existence of the 'lavasrc:' block under 'plugins:'
+            # because that regex seemed to be the problem. We assume if the JAR is present,
+            # the user intends to configure it. Lavalink will error if the config is truly malformed.
 
         # --- Final Output ---
-        if not config_ok:
+        if not config_ok: # Only fail on critical issues (like youtube: true)
             print("\n" + "="*60)
-            print("WARNING: Potential configuration issues found!")
-            print(f"Please review '{config_file_path}' based on the following:")
+            print("ERROR: Critical configuration issues found!")
+            print(f"Please fix '{config_file_path}' based on the following:")
             for warning in warnings:
                 print("-" * 20)
                 print(warning)
             print("="*60 + "\n")
-            return False
+            return False # Return False for critical errors
+        elif warnings: # Print optional warnings but allow script to continue
+            print("\n" + "="*60)
+            print("INFO: Configuration suggestions:")
+            for warning in warnings:
+                 print("-" * 20)
+                 print(warning)
+            print("="*60 + "\n")
+            return True # Return True as warnings are not critical block
         else:
-            print("Basic plugin configuration appears present (manual verification recommended).")
+            print("Basic plugin configuration checks passed (manual verification still recommended).")
             return True
 
     except Exception as e:
@@ -221,9 +199,8 @@ def setup_lavalink():
         print(f"YouTube Plugin JAR ({PLUGIN_JAR_NAME}) not found.")
         if not download_file(PLUGIN_URL, PLUGIN_JAR_PATH, f"YouTube Plugin v{PLUGIN_VERSION} JAR"):
              print("Warning: Failed to download YouTube plugin. YouTube functionality via plugin will be unavailable.")
-             # Don't mark as files_downloaded if only optional plugin failed
         else:
-             files_downloaded = True # Mark if essential plugin downloaded
+             files_downloaded = True
     else:
         print(f"YouTube Plugin JAR ({PLUGIN_JAR_NAME}) already exists.")
 
@@ -232,9 +209,8 @@ def setup_lavalink():
         print(f"Spotify Plugin JAR ({SPOTIFY_PLUGIN_JAR_NAME}) not found.")
         if not download_file(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, f"Spotify Plugin (Lavasrc) v{SPOTIFY_PLUGIN_VERSION} JAR"):
              print("Warning: Failed to download Spotify plugin. Spotify functionality will be unavailable.")
-             # Don't mark as files_downloaded if only optional plugin failed
         else:
-             files_downloaded = True # Mark if essential plugin downloaded
+             files_downloaded = True
     else:
         print(f"Spotify Plugin JAR ({SPOTIFY_PLUGIN_JAR_NAME}) already exists.")
 
@@ -262,9 +238,8 @@ def setup_lavalink():
              except KeyboardInterrupt:
                  print("\nExiting script to allow config editing.")
                  sys.exit(0)
-        # else:
-             # Config check happens later before launch anyway
-             # check_plugin_config(CONFIG_PATH)
+        # else: # Config check now happens before launch regardless
+             pass
     elif not os.path.exists(CONFIG_PATH):
          print(f"Warning: Config file '{CONFIG_PATH}' not found, and no plugins downloaded.")
          print("Lavalink will start with default settings and limited sources.")
@@ -274,15 +249,17 @@ def setup_lavalink():
         try:
             with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
                 content = f.read()
-            if re.search(r"lavalink:\s*\n.*?\s+server:\s*\n.*?\s+sources:\s*\n.*?\s+youtube:\s*false", content, re.DOTALL | re.IGNORECASE):
+            if re.search(r"lavalink:\s*\n.*?\s+server:\s*\n.*?\s+sources:\s*\n.*?\s+youtube:\s*false", content, re.DOTALL | re.IGNORECASE) \
+               and not os.path.exists(PLUGIN_JAR_PATH): # Only warn if plugin is missing
                 print("\nWARNING: Built-in YouTube source is disabled in config, but no YouTube plugin JAR was found!")
-                print("YouTube playback will likely fail. Either remove the plugin JAR or enable the built-in source.\n")
+                print("YouTube playback will likely fail. Either remove the 'youtube: false' line or add the plugin JAR.\n")
         except Exception: pass # Ignore errors reading config here
 
     return True
 
+
 def start_lavalink():
-    """Sets up Lavalink files, loads .env, and starts the server."""
+    """Sets up Lavalink files, loads .env, checks config, and starts the server."""
     print("Skipping Java version check as requested.") # Indicate check is skipped
 
     # Perform file setup (downloads etc)
@@ -290,7 +267,7 @@ def start_lavalink():
         sys.exit("Lavalink setup failed. Please check errors above.")
 
     # Check config validity *after* setup potentially created/modified it
-    if os.path.exists(CONFIG_PATH) and not check_plugin_config(CONFIG_PATH):
+    if os.path.exists(CONFIG_PATH) and not check_plugin_config(CONFIG_PATH): # check_plugin_config returns False on critical errors
          print("Exiting due to critical configuration issues detected. Please edit application.yml and restart.")
          sys.exit(1)
     elif not os.path.exists(CONFIG_PATH):
@@ -305,17 +282,14 @@ def start_lavalink():
         if loaded:
             print("Successfully loaded environment variables from .env for Lavalink process.")
             # Verify if specific needed vars were loaded into the Python script's environment
-            if not os.getenv("SPOTIFY_CLIENT_ID") or not os.getenv("SPOTIFY_CLIENT_SECRET"):
+            if os.path.exists(SPOTIFY_PLUGIN_JAR_PATH) and (not os.getenv("SPOTIFY_CLIENT_ID") or not os.getenv("SPOTIFY_CLIENT_SECRET")):
                 print("WARNING: SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET not found in loaded environment variables!")
                 print("         Lavalink Spotify plugin (LavaSrc) will likely fail.")
-            # else:
-            #     print("Spotify credentials found in environment.") # Less verbose
         else:
             print("Warning: .env file found but python-dotenv failed to load it.")
     else:
         print("Warning: .env file not found. Lavalink might miss required environment variables (e.g., Spotify keys).")
         print("         Ensure .env is in the same directory as this script or specify path.")
-        # Exit if Spotify plugin exists but keys aren't loaded? Maybe too strict.
         if os.path.exists(SPOTIFY_PLUGIN_JAR_PATH):
              print("         Since Spotify plugin JAR exists, missing .env is likely an error.")
 
@@ -336,64 +310,46 @@ def start_lavalink():
 
 
     # --- Prepare Java Command ---
-    # Note: Environment variables loaded above by load_dotenv() will be
-    # automatically inherited by the subprocess started by Popen/run.
-
     java_command = [
         "java", # ASSUMES 'java' is in the system PATH
         # --- Optional JVM / Logging Arguments ---
-        # Memory limits (adjust as needed)
-        # "-Xms512m",
-        # "-Xmx1024m",
-        # Force IPv4 if experiencing network issues
-        # "-Djava.net.preferIPv4Stack=true",
-        # Lavalink/Plugin Debug Logging (Uncomment specific lines if needed)
-        # "-Dlogging.level.root=DEBUG", # Very verbose
-        "-Dlogging.level.lavalink=INFO", # Lavalink core logs
+        # "-Xms512m", "-Xmx1024m", # Memory limits
+        # "-Djava.net.preferIPv4Stack=true", # Force IPv4
+        "-Dlogging.level.lavalink=INFO",
         "-Dlogging.level.lavalink.server=INFO",
-        # "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG", # Lavaplayer core
-        "-Dlogging.level.dev.lavalink.youtube=INFO", # YouTube plugin logs (use DEBUG for more detail)
-        "-Dlogging.level.dev.kaan.lavasrc=INFO",     # LavaSrc plugin logs (use DEBUG for more detail)
+        # "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG",
+        "-Dlogging.level.dev.lavalink.youtube=INFO", # DEBUG for more YT plugin info
+        "-Dlogging.level.dev.kaan.lavasrc=INFO",     # DEBUG for more LavaSrc info
         # --- Main Arguments ---
         "-jar",
-        JAR_PATH  # Use the variable holding the path
-        # Optional: Explicitly point to config if needed, but Lavalink usually finds it
-        # f"--spring.config.location=file:{CONFIG_PATH}"
+        JAR_PATH
     ]
 
     # --- Start Lavalink Process ---
-    print(f"Executing command: {' '.join(java_command)}") # Show the command being run
-    process = None # Initialize process variable
+    print(f"Executing command: {' '.join(java_command)}")
+    process = None
     try:
-        # Use Popen to run in background and stream output
         process = subprocess.Popen(
             java_command,
             stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT, # Redirect stderr to stdout
-            universal_newlines=True,  # Decode output as text
-            bufsize=1                 # Line buffered
+            stderr=subprocess.STDOUT,
+            universal_newlines=True,
+            bufsize=1
         )
-
-        # Print output in real-time
         if process.stdout:
             for line in iter(process.stdout.readline, ''):
-                if line: # Avoid printing empty lines if process closes stream
-                    print(line, end='', flush=True) # Print immediately
-        else:
-             print("Warning: Could not attach to Lavalink process stdout.")
-
-        # Wait for process to complete (normally it runs until stopped)
+                if line:
+                    print(line, end='', flush=True)
         process.wait()
         print("-" * 30)
         print(f"Lavalink process finished unexpectedly with exit code: {process.returncode}")
 
     except KeyboardInterrupt:
         print("\nStopping Lavalink (Ctrl+C received)...")
-        if process and process.poll() is None: # Check if process exists and is running
-             # Give it a chance to shut down gracefully
+        if process and process.poll() is None:
              process.terminate()
              try:
-                 process.wait(timeout=5) # Wait up to 5 seconds
+                 process.wait(timeout=5)
                  print("Lavalink terminated.")
              except subprocess.TimeoutExpired:
                  print("Lavalink did not terminate gracefully, killing...")
