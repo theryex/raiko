@@ -141,10 +141,32 @@ async def load_extensions():
     logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
 async def main():
-    async with bot:
-        await load_extensions()
-        logger.info("Starting bot...")
-        await bot.start(TOKEN)
+    # Initialize Lavalink first
+    logger.info("Initializing Lavalink Client...")
+    lavalink_client_id = CLIENT_ID or str(bot.user.id)
+    bot.lavalink = lavalink.Client(lavalink_client_id)
+
+    # Add Lavalink nodes from environment variables
+    lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
+    lavalink_port = int(os.getenv("LAVALINK_PORT", 2333))
+    lavalink_password = os.getenv('LAVALINK_PASSWORD', 'youshallnotpass')
+    lavalink_region = os.getenv('LAVALINK_REGION', 'us')
+
+    logger.info(f"Adding Lavalink node: Host={lavalink_host}, Port={lavalink_port}, Region={lavalink_region}, SSL=False")
+    bot.lavalink.add_node(
+        host=lavalink_host,
+        port=lavalink_port,
+        password=lavalink_password,
+        region=lavalink_region,
+        name='default-node'
+    )
+
+    # Load cogs after Lavalink is initialized
+    await load_extensions()
+
+    # Start the bot
+    logger.info("Starting bot...")
+    await bot.start(TOKEN)
 
 if __name__ == "__main__":
     try:

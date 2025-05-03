@@ -10,25 +10,24 @@ import textwrap  # For formatting warning messages
 from dotenv import load_dotenv
 
 # --- Configuration ---
-# Check the Lavalink releases page for the latest stable v4 version:
+# Check the Lavalink releases page for the latest stable version:
 # https://github.com/lavalink-devs/Lavalink/releases
-LAVALINK_VERSION = "4.0.8"  # <-- Set desired Lavalink Version
-REQUIRED_JAVA_VERSION = 17 # Lavalink v4 requires Java 17 or higher
+LAVALINK_VERSION = "3.7.11"  # <-- Set desired Lavalink Version
+REQUIRED_JAVA_VERSION = 17 # Lavalink requires Java 17 or higher
 
 # --- YouTube Plugin Configuration ---
 # https://github.com/lavalink-devs/youtube-source/releases
-PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version for Lavalink 4.0.8
+PLUGIN_VERSION = "1.13.0" # <-- Use the latest compatible version
 PLUGIN_NAME = "youtube-plugin"
 PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar"
 PLUGIN_URL = f"https://github.com/lavalink-devs/youtube-source/releases/download/{PLUGIN_VERSION}/{PLUGIN_JAR_NAME}"
 
 # --- Spotify Plugin Configuration (Lavasrc) ---
-# Check Lavasrc releases for compatibility with Lavalink v4:
+# Check Lavasrc releases for compatibility:
 # https://github.com/topi314/LavaSrc/releases
-# Using Lavasrc 4.0.0 as it's built for Lavalink v4
 SPOTIFY_PLUGIN_NAME = "lavasrc-plugin"
 SPOTIFY_PLUGIN_VERSION = "4.0.0" # <-- Use a compatible version
-SPOTIFY_PLUGIN_JAR_NAME = f"LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar" # <-- Check release asset name
+SPOTIFY_PLUGIN_JAR_NAME = f"LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar"
 SPOTIFY_PLUGIN_URL = f"https://github.com/topi314/LavaSrc/releases/download/{SPOTIFY_PLUGIN_VERSION}/LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar"
 # --- End Configuration ---
 
