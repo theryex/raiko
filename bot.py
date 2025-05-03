@@ -72,48 +72,68 @@ async def on_ready():
     logger.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     logger.info("------")
 
-    # Initialize Lavalink client
-    bot.lavalink = lavalink.Client(bot.user.id)
-    
-    # Add Lavalink nodes from environment variables
-    lavalink_nodes = [
-        {
-            "host": os.getenv("LAVALINK_HOST", "localhost"),
-            "port": int(os.getenv("LAVALINK_PORT", "2333")),
-            "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
-            "region": os.getenv("LAVALINK_REGION", "us"),
-            "name": "default-node"
-        }
-    ]
-    
-    for node in lavalink_nodes:
-        try:
-            bot.lavalink.add_node(**node)
-            logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
-        except Exception as e:
-            logger.error(f"Failed to add Lavalink node: {e}")
+    # Initialize Lavalink client ONLY if it hasn't been initialized yet
+    # (Avoids potential issues on reconnect/resume)
+    if bot.lavalink is None:
+        logger.info("Initializing Lavalink client...")
+        bot.lavalink = lavalink.Client(bot.user.id)
 
-    # Sync slash commands
+        # Add Lavalink nodes from environment variables
+        lavalink_nodes = [
+            {
+                "host": os.getenv("LAVALINK_HOST", "localhost"),
+                "port": int(os.getenv("LAVALINK_PORT", "2333")),
+                "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
+                "region": os.getenv("LAVALINK_REGION", "us"),
+                "name": "default-node"
+            }
+        ]
+
+        for node in lavalink_nodes:
+            try:
+                bot.lavalink.add_node(**node)
+                logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
+            except Exception as e:
+                logger.error(f"Failed to add Lavalink node: {e}")
+    else:
+        logger.info("Lavalink client already initialized (possibly after RESUME).")
+
+    # --- IMPORTANT CHANGE: Load extensions BEFORE syncing ---
+    await load_extensions()
+
+    # Sync slash commands AFTER extensions are loaded
     try:
+        # Optional: Sync to a specific guild for faster testing
+        # guild_id = YOUR_TEST_SERVER_ID # Replace with your server's ID (int)
+        # synced = await bot.tree.sync(guild=discord.Object(id=guild_id))
+        # logger.info(f"Synced {len(synced)} command(s) to guild {guild_id}")
+
+        # Sync globally (can take up to an hour to propagate)
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} command(s)")
+        logger.info(f"Synced {len(synced)} command(s) globally")
+
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
     logger.info("Bot is ready and Lavalink connection prepared.")
     await bot.change_presence(activity=discord.Game(name="Music! /play"))
 
-    # Load extensions after Lavalink is initialized
-    await load_extensions()
-
 # Load cogs
 async def load_extensions():
+    # (Keep the rest of your load_extensions function as is)
     logger.info("Loading extensions...")
     cogs_loaded = 0
     cogs_dir = Path('./cogs')
     if not cogs_dir.is_dir():
         logger.warning(f"Cogs directory '{cogs_dir}' not found. No extensions will be loaded.")
         return
+
+    # Make sure bot.lavalink exists before trying to load cogs that might depend on it
+    # The check inside Music cog's setup is good, but an early check here is safer
+    if not hasattr(bot, 'lavalink') or bot.lavalink is None:
+         logger.error("Attempting to load extensions, but bot.lavalink is not initialized!")
+         # Decide how to handle this: maybe return or raise an error
+         return # Or raise RuntimeError("Lavalink not ready for cog loading")
 
     for filename in os.listdir(cogs_dir):
         if filename.endswith('.py') and not filename.startswith('_'):
