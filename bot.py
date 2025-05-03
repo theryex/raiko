@@ -103,9 +103,6 @@ async def on_ready():
     logger.info("Bot is ready and Lavalink connection prepared.")
     await bot.change_presence(activity=discord.Game(name="Music! /play"))
 
-    # Load cogs after Lavalink is initialized
-    await load_extensions()
-
 # Load cogs
 async def load_extensions():
     logger.info("Loading extensions...")
@@ -135,9 +132,6 @@ async def load_extensions():
     logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
 async def main():
-    # Load cogs after Lavalink is initialized
-    await load_extensions()
-
     # Start the bot
     logger.info("Starting bot...")
     await bot.start(TOKEN)
