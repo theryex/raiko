@@ -83,7 +83,7 @@ async def on_ready():
     
     for node in lavalink_nodes:
         try:
-            await bot.lavalink.add_node(**node)
+            bot.lavalink.add_node(**node)
             logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
         except Exception as e:
             logger.error(f"Failed to add Lavalink node: {e}")
@@ -148,7 +148,7 @@ async def main():
     
     for node in lavalink_nodes:
         try:
-            await bot.lavalink.add_node(**node)
+            bot.lavalink.add_node(**node)
             logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
         except Exception as e:
             logger.error(f"Failed to add Lavalink node: {e}")
