@@ -13,7 +13,7 @@ from dotenv import load_dotenv # <-- Ensure this is imported
 # Check the Lavalink releases page for the latest stable version:
 # https://github.com/lavalink-devs/Lavalink/releases
 LAVALINK_VERSION = "3.7.11"  # <-- Set desired Lavalink Version
-REQUIRED_JAVA_VERSION = 17 # Lavalink requires Java 17 or higher
+# REQUIRED_JAVA_VERSION = 17 # Lavalink requires Java 17 or higher (REMOVED CHECK)
 
 # --- YouTube Plugin Configuration ---
 # https://github.com/lavalink-devs/youtube-source/releases
@@ -80,61 +80,7 @@ def download_file(url, destination_path, description):
         if os.path.exists(destination_path): os.remove(destination_path)
         return False
 
-def check_java_version():
-    """Checks if a compatible Java version is installed and returns its major version."""
-    print("Checking Java version...")
-    try:
-        # Use '--version' for modern Java, redirect stderr to stdout for compatibility
-        result = subprocess.run(
-            ["java", "--version"],
-            capture_output=True, text=True, check=False, stderr=subprocess.STDOUT
-        )
-        # If '--version' failed, try '-version' (older Java)
-        if result.returncode != 0 or "Runtime Environment" not in result.stdout:
-             result_old = subprocess.run(
-                 ["java", "-version"],
-                 capture_output=True, text=True, check=False, stderr=subprocess.STDOUT
-             )
-             # Prioritize output from '-version' if '--version' seemed invalid or failed differently
-             if result_old.returncode == 0 and "Runtime Environment" in result_old.stdout:
-                 result = result_old
-             # Handle command not found specifically
-             elif 'not found' in result.stdout.lower() or 'not recognized' in result.stdout.lower():
-                 raise FileNotFoundError("Java command not found")
-             # If both failed non-specifically, raise based on the first attempt
-             elif result.returncode != 0:
-                  raise subprocess.CalledProcessError(result.returncode, result.args, output=result.stdout)
-
-        output = result.stdout # Output is now consistently in stdout
-        # Regex to find version numbers like 21.0.6 or 17.0.1 or 1.8.0_301
-        match = re.search(r'(?:version|openjdk)\s+"?(\d+)(?:\.(\d+))?(?:\.(\d+))?(_\d+)?.*"?', output, re.IGNORECASE)
-
-        if match:
-            major = int(match.group(1))
-            # Handle Java 8 format "1.8.0"
-            if major == 1 and match.group(2):
-                major = int(match.group(2))
-
-            print(f"Detected Java major version: {major}")
-            return major, output
-        else:
-            print("Could not parse Java version string.")
-            full_output = f"--- Combined Output ---\n{output}"
-            return None, full_output
-
-    except FileNotFoundError:
-        print("Error: 'java' command not found. Is Java installed and in your PATH?")
-        return None, "Java command not found."
-    except subprocess.CalledProcessError as e:
-        print(f"Error running Java version check (Return Code: {e.returncode}):")
-        full_output = f"--- Combined Output ---\n{e.output or '[No Output]'}"
-        print(full_output)
-        return None, full_output
-    except Exception as e:
-        print(f"An unexpected error occurred while checking Java version: {e}")
-        try: err_output = result.stdout if 'result' in locals() and hasattr(result, 'stdout') else str(e)
-        except: err_output = str(e)
-        return None, err_output
+# --- Java Version Check Function REMOVED ---
 
 def check_plugin_config(config_file_path):
     """Checks if application.yml seems configured correctly for YouTube and Spotify plugins."""
@@ -336,18 +282,8 @@ def setup_lavalink():
     return True
 
 def start_lavalink():
-    """Checks Java, sets up Lavalink files, loads .env, and starts the server."""
-    java_major_version, java_version_output = check_java_version()
-
-    if java_major_version is None:
-        print("-" * 30); print("Java Version Check Output:"); print(java_version_output); print("-" * 30)
-        sys.exit(f"Failed to determine Java version. Lavalink v{LAVALINK_VERSION.split('.')[0]} requires Java {REQUIRED_JAVA_VERSION} or higher.")
-
-    if java_major_version < REQUIRED_JAVA_VERSION:
-        print("-" * 30); print("Java Version Check Output:"); print(java_version_output); print("-" * 30)
-        sys.exit(f"Error: Incompatible Java version detected (Version {java_major_version}). Lavalink v{LAVALINK_VERSION.split('.')[0]} requires Java {REQUIRED_JAVA_VERSION} or higher.")
-    else:
-        print(f"Java version {java_major_version} is compatible (Required: {REQUIRED_JAVA_VERSION}+).")
+    """Sets up Lavalink files, loads .env, and starts the server."""
+    print("Skipping Java version check as requested.") # Indicate check is skipped
 
     # Perform file setup (downloads etc)
     if not setup_lavalink():
@@ -402,10 +338,9 @@ def start_lavalink():
     # --- Prepare Java Command ---
     # Note: Environment variables loaded above by load_dotenv() will be
     # automatically inherited by the subprocess started by Popen/run.
-    # No need to manually set os.environ here again.
 
     java_command = [
-        "java",
+        "java", # ASSUMES 'java' is in the system PATH
         # --- Optional JVM / Logging Arguments ---
         # Memory limits (adjust as needed)
         # "-Xms512m",
