@@ -50,7 +50,7 @@ cache_dir = Path(os.getenv('CACHE_DIR', './cache'))
 cache_dir.mkdir(exist_ok=True)
 
 # Bot setup with required intents
-intents = discord.Intents.default()
+intents = discord.Intents.all()
 intents.message_content = True # Needed for potential prefix commands/debugging
 intents.voice_states = True  # Crucial for voice channel updates
 intents.guilds = True        # Standard guild events
@@ -77,20 +77,24 @@ async def on_ready():
         bot.lavalink = lavalink.Client(lavalink_client_id)
 
         # Add Lavalink nodes from environment variables
-        lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
-        lavalink_port = int(os.getenv("LAVALINK_PORT", 2333))
-        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'youshallnotpass')
-        lavalink_region = os.getenv('LAVALINK_REGION', 'us') # Optional, but good practice
-
-        logger.info(f"Adding Lavalink node: Host={lavalink_host}, Port={lavalink_port}, Region={lavalink_region}, SSL=False")
-        bot.lavalink.add_node(
-            host=lavalink_host,
-            port=lavalink_port,
-            password=lavalink_password,
-            region=lavalink_region,
-            name='default-node' # Identifier for this node
-        )
-        # You can add more nodes here if needed
+        lavalink_nodes = [
+            {
+                "host": os.getenv("LAVALINK_HOST", "localhost"),
+                "port": int(os.getenv("LAVALINK_PORT", "2333")),
+                "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
+                "region": os.getenv("LAVALINK_REGION", "us"),
+                "resume_key": os.getenv("LAVALINK_RESUME_KEY", "default"),
+                "resume_timeout": int(os.getenv("LAVALINK_RESUME_TIMEOUT", "60")),
+                "reconnect_attempts": int(os.getenv("LAVALINK_RECONNECT_ATTEMPTS", "3")),
+            }
+        ]
+        
+        for node in lavalink_nodes:
+            try:
+                await bot.lavalink.add_node(**node)
+                logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
+            except Exception as e:
+                logger.error(f"Failed to add Lavalink node: {e}")
 
         # IMPORTANT: Hook Lavalink into discord.py's voice event handling
         bot.add_listener(bot.lavalink.voice_update_handler, 'on_socket_response')
@@ -147,19 +151,24 @@ async def main():
     bot.lavalink = lavalink.Client(lavalink_client_id)
 
     # Add Lavalink nodes from environment variables
-    lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
-    lavalink_port = int(os.getenv("LAVALINK_PORT", 2333))
-    lavalink_password = os.getenv('LAVALINK_PASSWORD', 'youshallnotpass')
-    lavalink_region = os.getenv('LAVALINK_REGION', 'us')
-
-    logger.info(f"Adding Lavalink node: Host={lavalink_host}, Port={lavalink_port}, Region={lavalink_region}, SSL=False")
-    bot.lavalink.add_node(
-        host=lavalink_host,
-        port=lavalink_port,
-        password=lavalink_password,
-        region=lavalink_region,
-        name='default-node'
-    )
+    lavalink_nodes = [
+        {
+            "host": os.getenv("LAVALINK_HOST", "localhost"),
+            "port": int(os.getenv("LAVALINK_PORT", "2333")),
+            "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
+            "region": os.getenv("LAVALINK_REGION", "us"),
+            "resume_key": os.getenv("LAVALINK_RESUME_KEY", "default"),
+            "resume_timeout": int(os.getenv("LAVALINK_RESUME_TIMEOUT", "60")),
+            "reconnect_attempts": int(os.getenv("LAVALINK_RECONNECT_ATTEMPTS", "3")),
+        }
+    ]
+    
+    for node in lavalink_nodes:
+        try:
+            await bot.lavalink.add_node(**node)
+            logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
+        except Exception as e:
+            logger.error(f"Failed to add Lavalink node: {e}")
 
     # Load cogs after Lavalink is initialized
     await load_extensions()
