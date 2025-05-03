@@ -99,7 +99,10 @@ async def on_ready():
     try:
         logger.info("Attempting to sync application commands...")
         synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} application commands.")
+        if synced:
+            logger.info(f"Successfully synced {len(synced)} application commands.")
+        else:
+            logger.warning("No application commands were synced. Check bot permissions and command definitions.")
     except Exception as e:
         logger.error(f"Error syncing application commands: {e}", exc_info=True)
 
