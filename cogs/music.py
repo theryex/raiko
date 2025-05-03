@@ -4,7 +4,7 @@ from discord.ext import commands
 import lavalink
 from lavalink import DefaultPlayer, AudioTrack, LoadResult, LoadType
 from lavalink import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent
-from lavalink import PlayerError, NodeError
+from lavalink import PlayerErrorEvent, NodeErrorEvent
 from lavalink import LowPass  # Keep filter import
 
 import logging
@@ -254,9 +254,9 @@ class Music(commands.Cog):
         logger.error(f"Error in slash command '{interaction.command.name if interaction.command else 'unknown'}': {original}", exc_info=original)
 
         error_message = f"An unexpected error occurred: {original}"
-        if isinstance(original, PlayerError):
+        if isinstance(original, PlayerErrorEvent):
             error_message = f"Audio Player Error: {original}"
-        elif isinstance(original, NodeError):
+        elif isinstance(original, NodeErrorEvent):
              error_message = f"Audio Node Error: {original}"
         elif isinstance(original, app_commands.CheckFailure):
              # Check failures usually send their own messages, but maybe log here
@@ -406,12 +406,12 @@ class Music(commands.Cog):
             else:
                  logger.info(f"Player already playing, track(s) added to queue for Guild {interaction.guild_id}")
 
-        except NodeError as e:
+        except NodeErrorEvent as e:
              message = f"Lavalink node connection error: {e}. Please try again later or contact the admin."
              logger.error(f"NodeError during play command: {e}", exc_info=True)
              if interaction.response.is_done(): await interaction.followup.send(message, ephemeral=True)
              else: await interaction.response.send_message(message, ephemeral=True)
-        except PlayerError as e:
+        except PlayerErrorEvent as e:
              message = f"Audio player error: {e}. Please try again."
              logger.error(f"PlayerError during play command: {e}", exc_info=True)
              if interaction.response.is_done(): await interaction.followup.send(message, ephemeral=True)
@@ -656,7 +656,7 @@ class Music(commands.Cog):
 
             await interaction.response.send_message(embed=embed)
 
-        except PlayerError as e:
+        except PlayerErrorEvent as e:
              logger.error(f"Error applying filter: {e}")
              await interaction.response.send_message(f"Error applying filter: {e}", ephemeral=True)
         except Exception as e:
