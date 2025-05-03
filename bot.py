@@ -72,10 +72,10 @@ async def on_ready():
     try:
         await wavelink.Pool.connect(client=bot, nodes=[node])
         print("Wavelink Pool connection initiated.")
-        # You might need to wait for the node to be ready using an event listener
     except Exception as e:
         print(f"Error connecting to Lavalink node: {e}")
         logging.exception("Wavelink connection failed")
+        return  # Exit if Lavalink connection fails
 
 @bot.event
 async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
@@ -92,4 +92,4 @@ async def main():
         await bot.start(TOKEN)
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    asyncio.run(main())

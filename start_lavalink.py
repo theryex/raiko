@@ -269,7 +269,6 @@ def start_lavalink():
         "java",
         "-Dlogging.level.lavalink=DEBUG",
         "-Dlogging.level.com.sedmelluq.discord.lavaplayer=DEBUG",
-        # Assuming the plugin still identifies its logger as 'youtube'
         "-Dlogging.level.lavalink.plugins.youtube=DEBUG",
         "-jar",
         JAR_NAME
