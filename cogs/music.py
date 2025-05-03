@@ -688,8 +688,8 @@ class Music(commands.Cog):
 
 async def setup(bot: commands.Bot):
     if not hasattr(bot, 'lavalink') or not isinstance(bot.lavalink, lavalink.Client):
-         logger.error("Lavalink client not initialized on bot before loading Music cog. Cog may fail.")
-         raise commands.ExtensionFailed(name="Music", message="Music cog requires bot.lavalink to be initialized.")
+        logger.error("Lavalink client not initialized on bot before loading Music cog. Cog may fail.")
+        raise commands.ExtensionFailed("Music", "Music cog requires bot.lavalink to be initialized.")
 
     await bot.add_cog(Music(bot))
     logger.info("Music Cog loaded.")
