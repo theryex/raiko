@@ -6,6 +6,7 @@ from lavalink import DefaultPlayer, AudioTrack, LoadResult, LoadType
 # Import available event types
 from lavalink import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, PlayerErrorEvent # REMOVED NodeErrorEvent
 from lavalink import LowPass # Keep filter import
+import os 
 
 import logging
 import re
@@ -340,6 +341,9 @@ class Music(commands.Cog):
              error_message = f"Lavalink Node Error: {original}"
         elif isinstance(original, lavalink.errors.RequestError):
              error_message = f"Error communicating with Lavalink: {original}"
+        elif isinstance(original, NameError) and 'os' in str(original): # More specific check for the original error
+            error_message = "Internal bot configuration error (missing import)."
+            logger.error("NameError related to 'os' caught - ensure 'import os' is present in music.py")
 
 
         # Try sending the error message
@@ -372,13 +376,15 @@ class Music(commands.Cog):
         if not player:
              player = self.lavalink.player_manager.create(interaction.guild_id)
              logger.info(f"Created Lavalink player for Guild {interaction.guild_id}")
-             # Set default volume from config
+             # Set default volume from config (Now uses the imported 'os')
              try:
-                 default_vol = int(os.getenv('DEFAULT_VOLUME', 100))
+                 default_vol = int(os.getenv('DEFAULT_VOLUME', 100)) # <--- Fixed here
                  await player.set_volume(default_vol)
                  logger.info(f"Set default volume to {default_vol} for Guild {interaction.guild_id}")
              except ValueError:
                  logger.error(f"Invalid DEFAULT_VOLUME in config: {os.getenv('DEFAULT_VOLUME')}")
+             except Exception as e: # Catch potential errors during set_volume
+                 logger.error(f"Error setting default volume for Guild {interaction.guild_id}: {e}", exc_info=True)
 
 
         # Connect or check channel consistency
@@ -431,7 +437,7 @@ class Music(commands.Cog):
 
             # Enforce Queue Size Limit
             current_queue_size = len(player.queue)
-            max_queue = int(os.getenv('MAX_QUEUE_SIZE', 1000)) # Read from env
+            max_queue = int(os.getenv('MAX_QUEUE_SIZE', 1000)) 
 
             added_count = 0
             skipped_count = 0
@@ -439,7 +445,7 @@ class Music(commands.Cog):
 
             if results.load_type == LoadType.PLAYLIST_LOADED:
                 playlist_name = results.playlist_info.name or "Unnamed Playlist"
-                max_playlist = int(os.getenv('MAX_PLAYLIST_SIZE', 100)) # Read from env
+                max_playlist = int(os.getenv('MAX_PLAYLIST_SIZE', 100)) 
 
                 tracks_to_consider = results.tracks[:max_playlist]
 
