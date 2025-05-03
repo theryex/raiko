@@ -256,6 +256,9 @@ def start_lavalink():
     if not setup_lavalink():
         sys.exit("Lavalink setup failed. Please check errors above.")
 
+    if not check_plugin_config(CONFIG_PATH):
+        print("Warning: Lavalink configuration may not be properly set up for the YouTube plugin.")
+
     print("-" * 30)
     print(f"Attempting to start Lavalink v{LAVALINK_VERSION} with Plugin {PLUGIN_JAR_NAME} (if present)...")
     print(f"Using JAR: {JAR_PATH}")

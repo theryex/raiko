@@ -5,9 +5,72 @@ import wavelink
 import logging
 import re
 from typing import Optional
+import lavalink
+from lavalink.events import TrackStartEvent, QueueEndEvent
+from lavalink.errors import ClientError
+from lavalink.filters import LowPass
 
 # Basic URL pattern
 URL_REGEX = re.compile(r"https?://(?:www\.)?.+")
+
+class LavalinkVoiceClient(discord.VoiceProtocol):
+    """
+    Custom VoiceProtocol to handle Lavalink voice connections.
+    """
+    def __init__(self, client: discord.Client, channel: discord.abc.Connectable):
+        self.client = client
+        self.channel = channel
+        self.guild_id = channel.guild.id
+        self._destroyed = False
+
+        if not hasattr(self.client, 'lavalink'):
+            self.client.lavalink = lavalink.Client(client.user.id)
+            self.client.lavalink.add_node(host='localhost', port=2333, password='youshallnotpass',
+                                          region='us', name='default-node')
+
+        self.lavalink = self.client.lavalink
+
+    async def on_voice_server_update(self, data):
+        lavalink_data = {'t': 'VOICE_SERVER_UPDATE', 'd': data}
+        await self.lavalink.voice_update_handler(lavalink_data)
+
+    async def on_voice_state_update(self, data):
+        channel_id = data['channel_id']
+
+        if not channel_id:
+            await self._destroy()
+            return
+
+        self.channel = self.client.get_channel(int(channel_id))
+        lavalink_data = {'t': 'VOICE_STATE_UPDATE', 'd': data}
+        await self.lavalink.voice_update_handler(lavalink_data)
+
+    async def connect(self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False) -> None:
+        self.lavalink.player_manager.create(guild_id=self.channel.guild.id)
+        await self.channel.guild.change_voice_state(channel=self.channel, self_mute=self_mute, self_deaf=self_deaf)
+
+    async def disconnect(self, *, force: bool = False) -> None:
+        player = self.lavalink.player_manager.get(self.channel.guild.id)
+
+        if not force and not player.is_connected:
+            return
+
+        await self.channel.guild.change_voice_state(channel=None)
+        player.channel_id = None
+        await self._destroy()
+
+    async def _destroy(self):
+        self.cleanup()
+
+        if self._destroyed:
+            return
+
+        self._destroyed = True
+
+        try:
+            await self.lavalink.player_manager.destroy(self.guild_id)
+        except ClientError:
+            pass
 
 class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -19,6 +82,38 @@ class Music(commands.Cog):
             await ctx.send("This command can only be used in a server!")
             return False
         return True
+
+    def cog_unload(self):
+        """
+        Remove event hooks when the cog is unloaded.
+        """
+        self.bot.lavalink._event_hooks.clear()
+
+    async def cog_command_error(self, ctx, error):
+        if isinstance(error, commands.CommandInvokeError):
+            await ctx.send(error.original)
+
+    @lavalink.listener(TrackStartEvent)
+    async def on_track_start(self, event: TrackStartEvent):
+        guild_id = event.player.guild_id
+        channel_id = event.player.fetch('channel')
+        guild = self.bot.get_guild(guild_id)
+
+        if not guild:
+            return await self.bot.lavalink.player_manager.destroy(guild_id)
+
+        channel = guild.get_channel(channel_id)
+
+        if channel:
+            await channel.send(f'Now playing: {event.track.title} by {event.track.author}')
+
+    @lavalink.listener(QueueEndEvent)
+    async def on_queue_end(self, event: QueueEndEvent):
+        guild_id = event.player.guild_id
+        guild = self.bot.get_guild(guild_id)
+
+        if guild is not None:
+            await guild.voice_client.disconnect(force=True)
 
     @app_commands.command(name="play", description="Plays a song or adds it to the queue.")
     @app_commands.describe(query='URL or search query')
@@ -236,5 +331,35 @@ class Music(commands.Cog):
         vc.loop = not vc.loop
         await interaction.response.send_message(f"Loop mode {'enabled' if vc.loop else 'disabled'} 🔄")
 
+    @commands.command(aliases=['lp'])
+    async def lowpass(self, ctx, strength: float):
+        """ Sets the strength of the low pass filter. """
+        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
+
+        strength = max(0.0, min(100.0, strength))
+
+        embed = discord.Embed(color=discord.Color.blurple(), title='Low Pass Filter')
+
+        if strength == 0.0:
+            await player.remove_filter('lowpass')
+            embed.description = 'Disabled **Low Pass Filter**'
+            return await ctx.send(embed=embed)
+
+        low_pass = LowPass()
+        low_pass.update(smoothing=strength)
+        await player.set_filter(low_pass)
+
+        embed.description = f'Set **Low Pass Filter** strength to {strength}.'
+        await ctx.send(embed=embed)
+
+    @commands.command(aliases=['dc'])
+    async def disconnect(self, ctx):
+        """ Disconnects the player from the voice channel and clears its queue. """
+        player = self.bot.lavalink.player_manager.get(ctx.guild.id)
+        player.queue.clear()
+        await player.stop()
+        await ctx.voice_client.disconnect(force=True)
+        await ctx.send('✳ | Disconnected.')
+
 async def setup(bot: commands.Bot):
-    await bot.add_cog(Music(bot)) 
+    await bot.add_cog(Music(bot))

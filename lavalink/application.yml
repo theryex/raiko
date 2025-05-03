@@ -8,7 +8,7 @@ lavalink:
   server:
     password: "youshallnotpass"
     sources:
-      youtube: false
+      youtube: false  # Disable built-in YouTube source
       bandcamp: true
       soundcloud: true
       twitch: true
@@ -27,11 +27,11 @@ lavalink:
 
 plugins:
   youtube:
-    enabled: true
+    enabled: true  # Enable the YouTube plugin
     allowSearch: true
     allowDirectVideoIds: true
     allowDirectPlaylistIds: true
     clients:
       - MUSIC
       - WEB
-      - ANDROID_TESTSUITE 
+      - ANDROID_TESTSUITE

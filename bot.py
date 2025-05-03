@@ -45,7 +45,11 @@ bot = commands.Bot(command_prefix=DEFAULT_PREFIX, intents=intents)
 async def load_extensions():
     for filename in os.listdir('./cogs'):
         if filename.endswith('.py'):
-            await bot.load_extension(f'cogs.{filename[:-3]}')
+            try:
+                await bot.load_extension(f'cogs.{filename[:-3]}')
+                print(f"Loaded cog: {filename}")
+            except Exception as e:
+                print(f"Failed to load cog {filename}: {e}")
 
 @bot.event
 async def on_ready():
@@ -84,7 +88,11 @@ async def on_wavelink_node_ready(payload: wavelink.NodeReadyEventPayload):
 @bot.event
 async def on_wavelink_websocket_closed(payload: wavelink.WebsocketClosedEventPayload):
     print(f"Wavelink websocket closed: Reason: {payload.reason}, Code: {payload.code}")
-    # Implement reconnection logic here if needed
+    try:
+        await wavelink.Pool.connect(client=bot, nodes=[payload.node])
+        print(f"Reconnected to Lavalink node: {payload.node.identifier}")
+    except Exception as e:
+        print(f"Failed to reconnect to Lavalink node: {e}")
 
 async def main():
     async with bot:
