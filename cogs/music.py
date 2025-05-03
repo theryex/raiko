@@ -3,8 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 import lavalink
 from lavalink import DefaultPlayer, AudioTrack, LoadResult, LoadType
-# Correctly import Event types for error handling
-from lavalink import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, PlayerErrorEvent, NodeErrorEvent
+# Import available event types
+from lavalink import TrackStartEvent, QueueEndEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, PlayerErrorEvent # REMOVED NodeErrorEvent
 from lavalink import LowPass # Keep filter import
 
 import logging
@@ -26,6 +26,11 @@ def format_duration(milliseconds: int) -> str:
     """Formats milliseconds into HH:MM:SS or MM:SS."""
     if milliseconds is None:
         return "N/A"
+    try:
+        milliseconds = int(milliseconds) # Ensure it's an integer
+    except (ValueError, TypeError):
+        return "N/A"
+
     seconds = math.floor(milliseconds / 1000)
     minutes = math.floor(seconds / 60)
     hours = math.floor(minutes / 60)
@@ -44,20 +49,23 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
     Based on the official discord.py example.
     """
     def __init__(self, client: discord.Client, channel: discord.abc.Connectable):
+        super().__init__(client, channel) # Call super init
         self.client = client
         self.channel = channel
         # Ensure the Lavalink client instance exists
         if not hasattr(self.client, 'lavalink'):
-            # Attempt to initialize here as a fallback, though it should be done in bot.py
-            logger.warning("Lavalink client not found on bot, attempting fallback initialization in VoiceClient.")
-            self.client.lavalink = lavalink.Client(str(client.user.id))
-            # Note: Node connection should ideally happen in bot.py on_ready
-
-        self.lavalink: lavalink.Client = self.client.lavalink
+            logger.critical("Lavalink client not found on bot when creating VoiceClient!")
+            # This voice client might not function correctly.
+            # Consider raising an error or handling this state appropriately.
+            # For now, we'll let it potentially fail later during event handling.
+            self.lavalink = None # Indicate lavalink is missing
+        else:
+             self.lavalink: lavalink.Client = self.client.lavalink
 
 
     async def on_voice_server_update(self, data):
         """Handles the VOICE_SERVER_UPDATE event from Discord."""
+        if not self.lavalink: return # Don't proceed if lavalink wasn't initialized
         lavalink_data = {
             't': 'VOICE_SERVER_UPDATE',
             'd': data
@@ -67,13 +75,14 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
 
     async def on_voice_state_update(self, data):
         """Handles the VOICE_STATE_UPDATE event from Discord."""
+        if not self.lavalink: return # Don't proceed if lavalink wasn't initialized
         lavalink_data = {
             't': 'VOICE_STATE_UPDATE',
             'd': data
         }
         # logger.debug(f"VOICE_STATE_UPDATE: {data}")
-        # Cache the channel_id? Might not be necessary as Lavalink handles internal state.
         await self.lavalink.voice_update_handler(lavalink_data)
+
         # Handle disconnects initiated from Discord (e.g., user moves bot)
         # Check if channel_id is None and the update is for our bot user
         if data.get('channel_id') is None and data.get('user_id') == str(self.client.user.id): # Compare IDs as strings
@@ -91,6 +100,11 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
 
     async def connect(self, *, timeout: float, reconnect: bool, self_deaf: bool = False, self_mute: bool = False) -> None:
         """ Connects to the voice channel and creates a Lavalink player. """
+        if not self.lavalink:
+             logger.error(f"Cannot connect: Lavalink not initialized on bot.")
+             # Optionally raise an error here to prevent connection attempt
+             raise RuntimeError("Lavalink client is not available.")
+
         logger.info(f"Connecting to voice channel: {self.channel.name} (ID: {self.channel.id})")
         # Ensure a player instance exists for this guild in the Lavalink client
         self.lavalink.player_manager.create(guild_id=self.channel.guild.id)
@@ -101,13 +115,21 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
 
     async def disconnect(self, *, force: bool = False) -> None:
         """ Disconnects from the voice channel and destroys the Lavalink player. """
+        if not self.lavalink:
+            logger.warning("Cannot disconnect: Lavalink not initialized on bot.")
+            # Attempt basic discord.py disconnect if possible
+            if self.channel and self.channel.guild.voice_client:
+                 await self.channel.guild.change_voice_state(channel=None)
+            self.cleanup()
+            return
+
+        # Proceed with Lavalink disconnect logic
         player = self.lavalink.player_manager.get(self.channel.guild.id)
         guild_id = self.channel.guild.id # Store before potential cleanup
 
         logger.info(f"Disconnecting from voice channel: {self.channel.name if self.channel else 'Unknown'} (Guild ID: {guild_id}) Force: {force}")
 
 
-        # Normally, don't force disconnect player if it's still playing
         # Check if the bot is actually connected using discord.py's state
         voice_client = self.channel.guild.voice_client if self.channel else None # Check if channel exists
         if not force and player and player.is_connected and voice_client:
@@ -115,17 +137,14 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
             return
 
         # Tell Discord to leave the channel.
-        # This will trigger a VOICE_STATE_UPDATE event which Lavalink listens for.
         if voice_client: # Check if discord.py thinks we are connected
             await self.channel.guild.change_voice_state(channel=None)
             logger.info(f"Requested voice state change to disconnect from Guild {guild_id}")
             # Player cleanup should happen in on_voice_state_update now
 
-        # Clean up the Lavalink player instance *if* discord didn't trigger the event cleanup
-        # This might be redundant if on_voice_state_update works reliably, but acts as a fallback.
-        # Add a small delay to allow the event handler to potentially act first
-        await asyncio.sleep(0.2)
-        if self.lavalink.player_manager.get(guild_id): # Check if player still exists
+        # Fallback cleanup: destroy player if event handler didn't
+        await asyncio.sleep(0.2) # Give event handler a moment
+        if self.lavalink.player_manager.get(guild_id):
              logger.warning(f"Player still exists after requesting disconnect for Guild {guild_id}, attempting manual destroy.")
              await self._destroy_player(guild_id)
 
@@ -134,6 +153,8 @@ class LavalinkVoiceClient(discord.VoiceProtocol):
 
     async def _destroy_player(self, guild_id: int):
         """ Safely destroys the player and cleans up resources. """
+        if not self.lavalink: return # Can't destroy if lavalink doesn't exist
+
         logger.info(f"Attempting to destroy player for Guild ID: {guild_id}")
         try:
             # Check again if player exists before destroying
@@ -174,8 +195,8 @@ class Music(commands.Cog):
                 embed = discord.Embed(
                     color=discord.Color.green(),
                     title="Now Playing",
-                    description=f"[{event.track.title}]({event.track.uri})\n"
-                                f"Author: {event.track.author}\n"
+                    description=f"[{discord.utils.escape_markdown(event.track.title)}]({event.track.uri})\n" # Escape title
+                                f"Author: {discord.utils.escape_markdown(event.track.author)}\n" # Escape author
                                 f"Duration: {format_duration(event.track.duration)}\n"
                                 f"Requested by: <@{event.track.requester}>"
                 )
@@ -194,68 +215,87 @@ class Music(commands.Cog):
 
     @lavalink.listener(QueueEndEvent)
     async def on_queue_end(self, event: QueueEndEvent):
-        # This event triggers when the queue becomes empty *after* a track finishes.
-        # It does NOT trigger if the queue was already empty when stop/disconnect was called.
         player = event.player
         guild_id = player.guild_id
         guild = self.bot.get_guild(guild_id)
         logger.info(f"Queue ended for Guild {guild_id}. Player state: is_playing={player.is_playing}, is_connected={player.is_connected}")
 
         # Optional: Implement inactivity disconnect timer here
-        # For now, disconnect after a short delay if nothing else starts playing
-        await asyncio.sleep(10) # Wait 10 seconds
+        disconnect_delay = 60 # Seconds to wait before disconnecting
+        logger.info(f"Queue ended, starting {disconnect_delay}s disconnect timer for Guild {guild_id}")
 
-        # Check again if the player is still connected and not playing
+        await asyncio.sleep(disconnect_delay)
+
+        # Check again if the player is still connected and not playing after the delay
         player = self.lavalink.player_manager.get(guild_id) # Re-fetch player state
         if player and player.is_connected and not player.is_playing:
              if guild and guild.voice_client:
-                 logger.info(f"Queue ended and no new track started, disconnecting voice client for Guild {guild_id}")
-                 # Use the custom disconnect which also destroys the player
-                 await guild.voice_client.disconnect(force=True) # Force ensures cleanup
+                 logger.info(f"Disconnect timer finished, disconnecting inactive voice client for Guild {guild_id}")
+                 await guild.voice_client.disconnect(force=True)
              elif player:
-                 # If voice_client is gone but player exists, try destroying player directly
-                 logger.warning(f"Queue ended for Guild {guild_id}, but no active voice client found. Attempting player destroy.")
-                 await player.manager._destroy_player(guild_id) # Access protected method if needed, or use public if available
+                 logger.warning(f"Disconnect timer finished for Guild {guild_id}, but no active voice client found. Attempting player destroy.")
+                 await self._safe_destroy_player(guild_id) # Use helper
         else:
-            logger.info(f"QueueEndEvent: Player on Guild {guild_id} is now playing or disconnected, not auto-disconnecting.")
+            logger.info(f"QueueEndEvent: Player on Guild {guild_id} is now playing or already disconnected, cancelling auto-disconnect.")
 
+    # Helper to destroy player safely, used by event handlers
+    async def _safe_destroy_player(self, guild_id: int):
+         try:
+             if self.lavalink.player_manager.get(guild_id):
+                 await self.lavalink.player_manager.destroy(guild_id)
+                 logger.info(f"Helper destroyed player for Guild ID: {guild_id}")
+         except Exception as e:
+             logger.error(f"Error in _safe_destroy_player for Guild ID {guild_id}: {e}")
 
 
     @lavalink.listener(TrackEndEvent)
     async def on_track_end(self, event: TrackEndEvent):
-        # This event triggers whenever a track finishes playing for any reason (except replacement).
-        # Reason can be FINISHED, LOAD_FAILED, STOPPED, REPLACED, CLEANUP.
         logger.info(f"Track ended on Guild {event.player.guild_id}. Reason: {event.reason}")
-        # You could add logic here based on the reason, e.g., for queue repeat.
+        # Add specific logic if needed, e.g., REPLACED doesn't mean playback stopped.
 
     @lavalink.listener(TrackExceptionEvent)
     async def on_track_exception(self, event: TrackExceptionEvent):
         logger.error(f"Track Exception on Guild {event.player.guild_id}: {event.message}", exc_info=event.exception)
-        # Optionally notify the channel where the command was run
         channel_id = event.player.fetch('channel')
         guild = self.bot.get_guild(event.player.guild_id)
         if channel_id and guild:
             channel = guild.get_channel(channel_id)
             if channel and isinstance(channel, discord.TextChannel):
+                track_title = event.track.title if event.track else "the track"
+                error_msg = event.message or str(event.exception)
                 try:
-                    await channel.send(f"💥 Error playing track `{event.track.title}`: {event.message or event.exception}")
+                    await channel.send(f"💥 Error playing `{discord.utils.escape_markdown(track_title)}`: {error_msg}")
                 except discord.HTTPException:
-                    pass # Ignore if sending fails
+                    pass
 
     @lavalink.listener(TrackStuckEvent)
     async def on_track_stuck(self, event: TrackStuckEvent):
         logger.warning(f"Track Stuck on Guild {event.player.guild_id} (Threshold: {event.threshold_ms}ms): {event.track.title}")
-        # Optionally skip the track or notify the channel
         channel_id = event.player.fetch('channel')
         guild = self.bot.get_guild(event.player.guild_id)
         if channel_id and guild:
             channel = guild.get_channel(channel_id)
             if channel and isinstance(channel, discord.TextChannel):
+                track_title = event.track.title if event.track else "the track"
                 try:
-                    await channel.send(f"⚠️ Track `{event.track.title}` seems stuck, skipping...")
+                    await channel.send(f"⚠️ Track `{discord.utils.escape_markdown(track_title)}` seems stuck, skipping...")
                 except discord.HTTPException:
                      pass
         await event.player.skip()
+
+    # Listener for Player Errors (like decoding issues, etc.)
+    @lavalink.listener(PlayerErrorEvent)
+    async def on_player_error(self, event: PlayerErrorEvent):
+         logger.error(f"Player Error on Guild {event.player.guild_id}: {event.error}")
+         channel_id = event.player.fetch('channel')
+         guild = self.bot.get_guild(event.player.guild_id)
+         if channel_id and guild:
+             channel = guild.get_channel(channel_id)
+             if channel and isinstance(channel, discord.TextChannel):
+                 try:
+                     await channel.send(f"❌ Player error: {event.error}")
+                 except discord.HTTPException:
+                     pass
 
 
     # --- Cog Checks ---
@@ -278,213 +318,186 @@ class Music(commands.Cog):
         return True
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
-        # Handle errors specific to slash commands within this cog
         original = getattr(error, 'original', error)
-        logger.error(f"Error in slash command '{interaction.command.name if interaction.command else 'unknown'}': {original}", exc_info=original)
+        command_name = interaction.command.name if interaction.command else 'unknown'
+        logger.error(f"Error in slash command '{command_name}': {original}", exc_info=original)
 
         error_message = f"An unexpected error occurred: {original}"
-        # Check for the correct Event types now
-        if isinstance(original, PlayerErrorEvent):
-            error_message = f"Audio Player Error: {original.error}" # Access the error message from the event
-        elif isinstance(original, NodeErrorEvent):
-             error_message = f"Audio Node Error: {original.error}" # Access the error message from the event
+        # Check only for PlayerErrorEvent now
+        if isinstance(original, PlayerErrorEvent): # This check might not even trigger here if it's handled by the listener
+            error_message = f"Audio Player Error: {original.error}"
         elif isinstance(original, app_commands.CheckFailure):
-             # Check failures usually send their own messages, but maybe log here
-             logger.warning(f"Check failure for command '{interaction.command.name if interaction.command else 'unknown'}': {original}")
-             # If the interaction response wasn't already sent by the check
+             logger.warning(f"Check failure for command '{command_name}': {original}")
              if not interaction.response.is_done():
-                  await interaction.response.send_message(str(original), ephemeral=True)
-             return # Don't send another message
-        # Add more specific error handling as needed
+                  try:
+                      await interaction.response.send_message(str(original), ephemeral=True)
+                  except discord.HTTPException: pass # Ignore if sending fails
+             return
+        # Handle potential Lavalink operational errors if they bubble up
+        elif isinstance(original, lavalink.errors.AuthenticationError):
+             error_message = "Lavalink authentication failed. Check the password."
+        elif isinstance(original, lavalink.errors.NodeError): # Catch the base NodeError if it exists
+             error_message = f"Lavalink Node Error: {original}"
+        elif isinstance(original, lavalink.errors.RequestError):
+             error_message = f"Error communicating with Lavalink: {original}"
 
+
+        # Try sending the error message
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(f"❌ {error_message}", ephemeral=True)
             else:
                 await interaction.response.send_message(f"❌ {error_message}", ephemeral=True)
         except discord.HTTPException as e:
-             logger.error(f"Failed to send error message for command '{interaction.command.name if interaction.command else 'unknown'}': {e}")
+             logger.error(f"Failed to send error message for command '{command_name}': {e}")
 
     # --- Slash Commands ---
 
     @app_commands.command(name="play", description="Plays a song/playlist or adds it to the queue (YouTube, SoundCloud, Spotify).")
     @app_commands.describe(query='URL (YouTube, SoundCloud, Spotify) or search term (defaults to YouTube search)')
     async def play(self, interaction: discord.Interaction, *, query: str):
-        # interaction_check runs automatically for slash commands in cogs
 
         # Ensure user is in a voice channel
         if not interaction.user.voice or not interaction.user.voice.channel:
-            await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
-            return
+            return await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
         user_channel = interaction.user.voice.channel
 
-        # Get or create the Lavalink player for this guild
-        # Using guild_id directly is safe as interaction_check ensures it's in a guild
         player: DefaultPlayer = self.lavalink.player_manager.get(interaction.guild_id)
 
-        # Check node availability before proceeding
+        # Check node availability
         if not player and not self.lavalink.node_manager.available_nodes:
              logger.error(f"Play command failed for Guild {interaction.guild_id}: No available Lavalink nodes.")
-             await interaction.response.send_message("Music service node is currently unavailable. Please try again later.", ephemeral=True)
-             return
+             return await interaction.response.send_message("Music service node is currently unavailable. Please try again later.", ephemeral=True)
+
         if not player:
              player = self.lavalink.player_manager.create(interaction.guild_id)
              logger.info(f"Created Lavalink player for Guild {interaction.guild_id}")
              # Set default volume from config
-             default_vol = int(os.getenv('DEFAULT_VOLUME', 100))
-             await player.set_volume(default_vol)
-             logger.info(f"Set default volume to {default_vol} for Guild {interaction.guild_id}")
+             try:
+                 default_vol = int(os.getenv('DEFAULT_VOLUME', 100))
+                 await player.set_volume(default_vol)
+                 logger.info(f"Set default volume to {default_vol} for Guild {interaction.guild_id}")
+             except ValueError:
+                 logger.error(f"Invalid DEFAULT_VOLUME in config: {os.getenv('DEFAULT_VOLUME')}")
 
-        # Connect if not already connected
-        if not interaction.guild.voice_client or not player.is_connected:
-             # Check permissions before attempting connection
-            permissions = user_channel.permissions_for(interaction.guild.me)
-            if not permissions.connect or not permissions.speak:
-                await interaction.response.send_message("I need permissions to `Connect` and `Speak` in your voice channel.", ephemeral=True)
-                # Clean up player if we created it but can't connect
-                if self.lavalink.player_manager.get(interaction.guild_id):
-                     await self.lavalink.player_manager.destroy(interaction.guild_id)
-                return
 
-            logger.info(f"Connecting to voice channel {user_channel.name} in Guild {interaction.guild_id}")
-            # Store the text channel ID where the command was invoked for sending messages later
-            player.store('channel', interaction.channel.id)
-            await user_channel.connect(cls=LavalinkVoiceClient) # Use our custom voice client
-            # Defer response *before* connecting or send initial message
-            await interaction.response.defer(thinking=True, ephemeral=False) # Defer publicly while connecting/searching
-            # await interaction.response.send_message(f"Joining {user_channel.mention}...") # Alternative initial msg
-            # await asyncio.sleep(0.5) # Short delay might still be helpful
-        # If already connected, check if user is in the same channel
-        elif interaction.user.voice.channel.id != player.channel_id: # Check against player's stored channel ID
-             await interaction.response.send_message("You need to be in the same voice channel as the bot.", ephemeral=True)
-             return
+        # Connect or check channel consistency
+        vc = interaction.guild.voice_client
+        if not vc or not player.is_connected: # Check both discord voice client and lavalink player status
+             permissions = user_channel.permissions_for(interaction.guild.me)
+             if not permissions.connect or not permissions.speak:
+                 # Clean up player before returning if created but cannot connect
+                 if self.lavalink.player_manager.get(interaction.guild_id) and not player.is_connected:
+                      await self._safe_destroy_player(interaction.guild_id)
+                 return await interaction.response.send_message("I need permissions to `Connect` and `Speak` in your voice channel.", ephemeral=True)
+
+             logger.info(f"Connecting to voice channel {user_channel.name} in Guild {interaction.guild_id}")
+             player.store('channel', interaction.channel.id)
+             await user_channel.connect(cls=LavalinkVoiceClient)
+             await interaction.response.defer(thinking=True, ephemeral=False) # Defer publicly
+
+        # Check if the bot is in a different channel than the user
+        elif vc and vc.channel.id != user_channel.id:
+             return await interaction.response.send_message("You need to be in the same voice channel as the bot.", ephemeral=True)
         else:
-             # If connected and in same channel, just acknowledge
-             await interaction.response.defer(thinking=True) # Defer response while searching
+             # Already connected and in the same channel
+             await interaction.response.defer(thinking=True) # Defer privately
+
 
         # Get tracks from Lavalink
         try:
-            # Determine search type (URL or search query)
-            search_query = query.strip('<>') # Remove potential embed masking <>
-            load_type_log = "query" # Default log type
+            search_query = query.strip('<>')
+            load_type_log = "query"
 
             if URL_REGEX.match(search_query):
-                if SPOTIFY_REGEX.match(search_query):
-                    logger.info(f"Spotify URL detected: {search_query}")
-                    load_type_log = "Spotify URL"
-                elif SOUNDCLOUD_REGEX.match(search_query):
-                     logger.info(f"SoundCloud URL detected: {search_query}")
-                     load_type_log = "SoundCloud URL"
-                else:
-                     logger.info(f"Potential YouTube/Other URL detected: {search_query}")
-                     load_type_log = "Generic URL"
-                     # Let Lavalink determine if it's YT or other supported HTTP
+                if SPOTIFY_REGEX.match(search_query): load_type_log = "Spotify URL"
+                elif SOUNDCLOUD_REGEX.match(search_query): load_type_log = "SoundCloud URL"
+                else: load_type_log = "Generic URL"
             else:
-                # Default to YouTube search if not a recognizable URL
                 search_query = f"ytsearch:{search_query}"
-                logger.info(f"Search term detected, using YouTube search: {search_query}")
                 load_type_log = "YouTube Search"
-
 
             logger.info(f"[{interaction.guild.name}] Getting tracks for: '{search_query}' ({load_type_log})")
             results: LoadResult = await player.node.get_tracks(search_query)
             logger.debug(f"LoadResult: Type={results.load_type}, Playlist={results.playlist_info}, Tracks={len(results.tracks)}")
 
             # Validate results
-            if results.load_type == LoadType.LOAD_FAILED:
-                 message = f"Failed to load tracks: {results.cause}"
-                 logger.error(f"Track loading failed for query '{search_query}': {results.cause}")
-                 # Use followup since we deferred
-                 await interaction.followup.send(message, ephemeral=True)
-                 return
-            elif results.load_type == LoadType.NO_MATCHES:
-                 message = f"Could not find any results for `{query}`."
-                 logger.warning(f"No matches found for: {query} (Search: {search_query})")
-                 await interaction.followup.send(message, ephemeral=True)
-                 return
-            elif not results.tracks: # Should be covered by NO_MATCHES, but safety check
-                 message = f"No tracks found for `{query}`."
-                 logger.warning(f"Result had no tracks despite not being NO_MATCHES for: {query}")
+            if results.load_type in (LoadType.LOAD_FAILED, LoadType.NO_MATCHES) or not results.tracks:
+                 error_cause = results.cause if results.load_type == LoadType.LOAD_FAILED else "No matches found"
+                 message = f"Failed to load tracks: {error_cause}" if results.load_type == LoadType.LOAD_FAILED else f"Could not find any results for `{query}`."
+                 logger.warning(f"{message} (Query: {search_query})")
                  await interaction.followup.send(message, ephemeral=True)
                  return
 
-            # Enforce Queue Size Limit before adding
+            # Enforce Queue Size Limit
             current_queue_size = len(player.queue)
-            max_queue = MAX_QUEUE_SIZE # From config
+            max_queue = int(os.getenv('MAX_QUEUE_SIZE', 1000)) # Read from env
 
-            # Add tracks to queue
             added_count = 0
             skipped_count = 0
             message = ""
 
             if results.load_type == LoadType.PLAYLIST_LOADED:
                 playlist_name = results.playlist_info.name or "Unnamed Playlist"
-                max_songs_playlist = MAX_PLAYLIST_SIZE # From config
-                
-                tracks_to_consider = results.tracks[:max_songs_playlist]
-                
+                max_playlist = int(os.getenv('MAX_PLAYLIST_SIZE', 100)) # Read from env
+
+                tracks_to_consider = results.tracks[:max_playlist]
+
                 for track in tracks_to_consider:
                     if current_queue_size + added_count < max_queue:
                         player.add(requester=interaction.user.id, track=track)
                         added_count += 1
-                    else:
-                        skipped_count += 1
-                
-                message = f"✅ Added **{added_count}** tracks from playlist **`{playlist_name}`** to the queue."
-                if len(results.tracks) > max_songs_playlist:
-                     message += f"\n*(Playlist capped at {max_songs_playlist} tracks)*"
-                if skipped_count > 0:
-                     message += f"\n*(Skipped {skipped_count} tracks as queue reached max size of {max_queue})*"
-                logger.info(f"Added {added_count} tracks from playlist '{playlist_name}' requested by {interaction.user} ({interaction.user.id}). Skipped {skipped_count}.")
+                    else: skipped_count += 1
+
+                message = f"✅ Added **{added_count}** tracks from playlist **`{discord.utils.escape_markdown(playlist_name)}`**."
+                if len(results.tracks) > max_playlist: message += f" (Playlist capped at {max_playlist})"
+                if skipped_count > 0: message += f" (Queue full, skipped {skipped_count})"
+                logger.info(f"Added {added_count}/{len(tracks_to_consider)} tracks from playlist '{playlist_name}' for {interaction.user}. Skipped {skipped_count}.")
 
             elif results.load_type in [LoadType.TRACK_LOADED, LoadType.SEARCH_RESULT]:
                 track = results.tracks[0]
                 if current_queue_size < max_queue:
                      player.add(requester=interaction.user.id, track=track)
-                     added_count = 1
-                     message = f"✅ Added **`{track.title}`** to the queue."
-                     logger.info(f"Added track '{track.title}' requested by {interaction.user} ({interaction.user.id})")
+                     message = f"✅ Added **`{discord.utils.escape_markdown(track.title)}`** to the queue."
+                     logger.info(f"Added track '{track.title}' for {interaction.user}")
                 else:
-                     message = f"❌ Could not add **`{track.title}`**, the queue is full (Max: {max_queue})."
-                     logger.warning(f"Queue full. Could not add track '{track.title}' for {interaction.user} ({interaction.user.id})")
+                     message = f"❌ Queue is full (Max: {max_queue}). Could not add **`{discord.utils.escape_markdown(track.title)}`**."
+                     logger.warning(f"Queue full. Skipped track '{track.title}' for {interaction.user}")
 
-
-            # Send confirmation message using followup
+            # Send confirmation
             await interaction.followup.send(message)
 
             # Start playback if not already playing
             if not player.is_playing:
                 logger.info(f"Player not playing, starting playback for Guild {interaction.guild_id}")
                 await player.play()
-            # else: Player automatically continues or starts next on track end
 
-        # Removed specific PlayerError/NodeError catches as they are events
+        # Catch potential operational errors during get_tracks or play
+        except lavalink.errors.RequestError as e:
+             logger.error(f"Lavalink RequestError in play command: {e}", exc_info=True)
+             await interaction.followup.send(f"Error communicating with Lavalink node: {e}", ephemeral=True)
         except Exception as e:
             message = f"An unexpected error occurred: {e}"
-            logger.exception(f"Unexpected error in play command for query '{query}': {e}") # Log full traceback
-            # Use followup since we deferred
-            try:
-                 await interaction.followup.send(message, ephemeral=True)
-            except discord.HTTPException:
-                 logger.error("Failed to send followup error message for play command.")
+            logger.exception(f"Unexpected error in play command for query '{query}': {e}")
+            try: await interaction.followup.send(message, ephemeral=True)
+            except discord.HTTPException: pass
 
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel.")
     async def disconnect(self, interaction: discord.Interaction):
         player = self.lavalink.player_manager.get(interaction.guild_id)
+        vc = interaction.guild.voice_client
 
-        if not interaction.guild.voice_client:
+        if not vc:
             return await interaction.response.send_message("Not connected to any voice channel.", ephemeral=True)
-
-        # Permission check (optional)
 
         logger.info(f"Disconnect command initiated by {interaction.user} in Guild {interaction.guild_id}")
         if player:
             player.queue.clear()
             await player.stop()
+            # Player object cleanup is handled by the disconnect process / event handlers
 
-        # Use the custom disconnect method from LavalinkVoiceClient
-        await interaction.guild.voice_client.disconnect(force=True)
+        await vc.disconnect(force=True) # Force ensures discord disconnect occurs
         await interaction.response.send_message("Disconnected and cleared queue.")
 
 
@@ -495,15 +508,12 @@ class Music(commands.Cog):
         if not player or not interaction.guild.voice_client:
             return await interaction.response.send_message("Not currently playing anything.", ephemeral=True)
 
-        # Permission check (optional)
-
         if not player.is_playing and not player.queue:
              return await interaction.response.send_message("Nothing is playing and the queue is empty.", ephemeral=True)
 
         logger.info(f"Stop command initiated by {interaction.user} in Guild {interaction.guild_id}")
         player.queue.clear()
         await player.stop()
-        # Bot remains connected
         await interaction.response.send_message("⏹️ Music stopped and queue cleared.")
 
 
@@ -514,12 +524,19 @@ class Music(commands.Cog):
         if not player or not player.is_playing:
             return await interaction.response.send_message("No song is currently playing.", ephemeral=True)
 
-        # Permission check (optional)
-
         current_title = player.current.title if player.current else "Unknown Track"
         logger.info(f"Skip command initiated by {interaction.user} for track '{current_title}' in Guild {interaction.guild_id}")
+
         await player.skip()
-        await interaction.response.send_message(f"⏭️ Skipped **`{current_title}`**.")
+        # Check if skip actually stopped the track (it should trigger TrackEndEvent)
+        await asyncio.sleep(0.1) # Give event time to process maybe
+        skipped_msg = f"⏭️ Skipped **`{discord.utils.escape_markdown(current_title)}`**."
+
+        # Send response, check if player stopped (might indicate queue empty)
+        if not player.is_playing and not player.queue:
+             skipped_msg += "\nQueue is now empty."
+
+        await interaction.response.send_message(skipped_msg)
 
 
     @app_commands.command(name="pause", description="Pauses the current song.")
@@ -557,7 +574,7 @@ class Music(commands.Cog):
         if not player or not player.current:
             return await interaction.response.send_message("No song is currently playing to loop.", ephemeral=True)
 
-        player.repeat = not player.repeat
+        player.repeat = not player.repeat # Toggles boolean value
         mode = "ON" if player.repeat else "OFF"
         logger.info(f"Loop command initiated by {interaction.user}. Loop set to {mode} for Guild {interaction.guild_id}")
         await interaction.response.send_message(f"🔄 Loop mode for the current track set to **{mode}**.")
@@ -567,16 +584,11 @@ class Music(commands.Cog):
     async def shuffle(self, interaction: discord.Interaction):
         player = self.lavalink.player_manager.get(interaction.guild_id)
 
-        if not player or len(player.queue) < 2: # Need at least 2 songs to shuffle
+        if not player or len(player.queue) < 2:
             return await interaction.response.send_message("The queue needs at least 2 songs to shuffle.", ephemeral=True)
 
         logger.info(f"Shuffle command initiated by {interaction.user} in Guild {interaction.guild_id}")
-        player.set_shuffle(True) # Enable server-side shuffling
-        # Note: Lavalink shuffles *when this is set*. It doesn't re-shuffle automatically later.
-        # To shuffle the current queue list in place:
-        # import random
-        # random.shuffle(player.queue)
-        # player.set_shuffle(False) # Disable server shuffling if managing manually
+        player.set_shuffle(True)
         await interaction.response.send_message("🔀 Queue shuffled.")
 
 
@@ -602,20 +614,19 @@ class Music(commands.Cog):
         current_page_items = queue_list[start_index:end_index]
 
         queue_display = ""
-        if not current_page_items and page > 1: # Show empty only if not page 1
+        if not current_page_items and page > 1:
              queue_display = "No tracks on this page."
-        elif not current_page_items and page == 1 and not player.current: # Handle empty page 1 specifically
-             queue_display = "The queue is empty."
+        elif not current_page_items and page == 1 and not player.current:
+             queue_display = "The queue is empty." # Should be caught earlier but safety
         else:
             for i, track in enumerate(current_page_items, start=start_index + 1):
                 if isinstance(track, AudioTrack):
-                     # Escape potential markdown characters in titles
                      title = discord.utils.escape_markdown(track.title)
                      duration = format_duration(track.duration)
                      requester = f"<@{track.requester}>" if track.requester else "Unknown"
                      queue_display += f"**{i}.** `[{duration}]` [{title}]({track.uri}) - {requester}\n"
                 else:
-                     logger.warning(f"Item in queue is not an AudioTrack instance: {track}")
+                     logger.warning(f"Item in queue {i} is not an AudioTrack instance: {track}")
                      queue_display += f"**{i}.** Invalid track data\n"
 
         embed = discord.Embed(
@@ -633,12 +644,10 @@ class Music(commands.Cog):
                  embed.set_thumbnail(url=player.current.artwork_url)
 
         embed.add_field(name="Currently Playing", value=current_track_info, inline=False)
-        if queue_display: # Only add the queue field if there's something to display
+        if queue_display:
             embed.add_field(name=f"Up Next (Page {page}/{total_pages})", value=queue_display, inline=False)
-        else: # Handle edge case where queue is empty but song is playing
-             if not player.queue:
-                  embed.add_field(name="Up Next", value="The queue is empty.", inline=False)
-
+        elif not player.queue: # Handle case where song playing but queue empty
+             embed.add_field(name="Up Next", value="The queue is empty.", inline=False)
 
         queue_duration_ms = sum(t.duration for t in queue_list if isinstance(t, AudioTrack) and t.duration is not None)
         total_duration_str = format_duration(queue_duration_ms)
@@ -655,41 +664,32 @@ class Music(commands.Cog):
         if not player:
              return await interaction.response.send_message("Bot is not connected or playing.", ephemeral=True)
 
-        # Clamp strength (Range might handle this, but belt-and-suspenders)
         strength = max(0.0, min(100.0, strength))
 
         embed = discord.Embed(color=discord.Color.blurple(), title='Low Pass Filter')
 
         try:
-            # Use player.set_filter for simplicity - it handles adding/removing/replacing
             if strength == 0.0:
-                # Create a filter object *without* lowpass to remove it
-                # You might need to re-apply other active filters if any exist
-                # Simplest way: Create an empty LowPass to effectively nullify it
-                await player.set_filter(LowPass()) # Setting default LowPass might disable it
-                # Alternative: Get current filters, remove lowpass, set again (more complex)
+                # Create a filter object with default smoothing to disable/reset
+                await player.set_filter(LowPass())
                 embed.description = 'Disabled **Low Pass Filter** (or set to default).'
             else:
-                # The strength value for lavalink's LowPass is 'smoothing'
-                smoothing_value = strength # Adjust this based on testing if 0-100 isn't ideal
+                smoothing_value = strength
                 low_pass_filter = LowPass(smoothing=smoothing_value)
                 await player.set_filter(low_pass_filter)
                 embed.description = f'Set **Low Pass Filter** smoothing to `{smoothing_value:.2f}`.'
 
             await interaction.response.send_message(embed=embed)
 
-        # Removed specific PlayerError catch
         except Exception as e:
               logger.exception(f"Unexpected error applying filter: {e}")
               await interaction.response.send_message(f"An unexpected error occurred while applying the filter: {e}", ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
-    # Check if Lavalink is initialized on the bot instance before adding the cog
     if not hasattr(bot, 'lavalink') or not isinstance(bot.lavalink, lavalink.Client):
          logger.error("Lavalink client not initialized on bot before loading Music cog. Cog may fail.")
-         # raise commands.ExtensionFailed("Music cog requires bot.lavalink to be initialized.")
-         return # Silently fail to load
+         raise commands.ExtensionFailed(name="Music", message="Music cog requires bot.lavalink to be initialized.")
 
     await bot.add_cog(Music(bot))
     logger.info("Music Cog loaded.")
