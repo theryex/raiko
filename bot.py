@@ -50,13 +50,18 @@ cache_dir = Path(os.getenv('CACHE_DIR', './cache'))
 cache_dir.mkdir(exist_ok=True)
 
 # Bot setup with required intents
-intents = discord.Intents.all()
-intents.message_content = True # Needed for potential prefix commands/debugging
-intents.voice_states = True  # Crucial for voice channel updates
-intents.guilds = True        # Standard guild events
-intents.members = True       # Useful for getting member objects
+intents = discord.Intents.default()
+intents.voice_states = True  # Required for voice channel state tracking
+intents.message_content = True  # Required for message content
+intents.guilds = True  # Required for guild data
+intents.members = True  # Required for member data
+intents.guild_voice_states = True  # Required for voice state updates
+intents.guild_messages = True  # Required for message events
 
-bot = commands.Bot(command_prefix=DEFAULT_PREFIX, intents=intents) # Keep prefix for now
+bot = commands.Bot(command_prefix=DEFAULT_PREFIX, intents=intents)
+
+# Initialize Lavalink client
+bot.lavalink = None
 
 # --- Lavalink Setup ---
 # Lavalink client will be initialized in on_ready after bot user ID is available
@@ -130,29 +135,6 @@ async def load_extensions():
     logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
 async def main():
-    # Initialize Lavalink first
-    logger.info("Initializing Lavalink Client...")
-    lavalink_client_id = CLIENT_ID or str(bot.user.id)
-    bot.lavalink = lavalink.Client(lavalink_client_id)
-
-    # Add Lavalink nodes from environment variables
-    lavalink_nodes = [
-        {
-            "host": os.getenv("LAVALINK_HOST", "localhost"),
-            "port": int(os.getenv("LAVALINK_PORT", "2333")),
-            "password": os.getenv("LAVALINK_PASSWORD", "youshallnotpass"),
-            "region": os.getenv("LAVALINK_REGION", "us"),
-            "name": "default-node"
-        }
-    ]
-    
-    for node in lavalink_nodes:
-        try:
-            bot.lavalink.add_node(**node)
-            logger.info(f"Added Lavalink node: {node['host']}:{node['port']}")
-        except Exception as e:
-            logger.error(f"Failed to add Lavalink node: {e}")
-
     # Load cogs after Lavalink is initialized
     await load_extensions()
 
