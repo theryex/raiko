@@ -92,7 +92,7 @@ class MusicBot(commands.Bot):
 
     async def setup_hook(self):
 
-        # --- Initialize and Connect Wavelink Node using NodePool.connect ---
+        # --- Initialize and Connect Wavelink Node using pool.connect ---
         logger.info("Initializing Wavelink node ")
         try:
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
@@ -110,13 +110,13 @@ class MusicBot(commands.Bot):
                 password=lavalink_password
             )
 
-            # 2. Connect using NodePool.connect, passing the client and list of nodes
+            # 2. Connect using Pool.connect, passing the client and list of nodes
             # Add a timeout to prevent indefinite hanging
-            logger.debug("Starting NodePool.connect task...")
+            logger.debug("Starting Pool.connect task...")
             connect_task = asyncio.create_task(wavelink.Pool.connect(nodes=[node], client=self))
             await asyncio.wait_for(connect_task, timeout=30)  # Timeout after 30 seconds
 
-            logger.info(f"Wavelink NodePool.connect called for node '{node_id}'. Waiting for node ready event...")
+            logger.info(f"Wavelink Pool.connect called for node '{node_id}'. Waiting for node ready event...")
 
         # Catch specific Wavelink exceptions if possible, otherwise general Exception
         except asyncio.TimeoutError:
@@ -132,12 +132,12 @@ class MusicBot(commands.Bot):
             logger.critical(f"Wavelink connection failed: Node connection error (check URI/Lavalink server?). Error: {e}", exc_info=True)
             exit("Wavelink connection failed during setup (Node Error).")
         except Exception as e:
-            logger.critical(f"Failed during Wavelink NodePool.connect setup: {e}", exc_info=True)
+            logger.critical(f"Failed during Wavelink Pool.connect setup: {e}", exc_info=True)
             exit("Wavelink connection failed during setup.")
 
         # Add debug log to check node status after connection
         try:
-            node = wavelink.NodePool.get_node()
+            node = wavelink.NPool.get_node()
             logger.info(f"Node '{node.identifier}' status: {node.status}")
         except Exception as e:
             logger.error(f"Failed to retrieve node status: {e}")
