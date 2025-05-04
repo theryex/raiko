@@ -209,11 +209,11 @@ def start_lavalink():
     if os.path.exists(SPOTIFY_PLUGIN_JAR_PATH): print(f" - Found Spotify Plugin: {SPOTIFY_PLUGIN_JAR_NAME}")
     print("-" * 30)
 
-    # --- Prepare Java Command ---
+# --- Prepare Java Command ---
     # Increased logging and force IPv4 for further debugging
     JAVA_EXECUTABLE = "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" # Force Java 17
     java_command = [
-        "java",
+        JAVA_EXECUTABLE, 
         "-Djava.net.preferIPv4Stack=true", # Force IPv4 - common network issue fix
         # Debug Logging Arguments (Enable these for MUCH more detail)
         "-Dlogging.level.root=INFO", # Keep root INFO unless desperate
