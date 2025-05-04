@@ -164,7 +164,7 @@ class Music(commands.Cog):
             await interaction.response.send_message("❌ This command can only be used in a server!", ephemeral=True)
             return False
         node = wavelink.Pool.get_node()
-        if not node or not node.is_connected:
+        if not node or node.status != wavelink.NodeStatus.CONNECTED:
             await interaction.response.send_message("❌ Music service is currently unavailable.", ephemeral=True)
             return False
         commands_require_vc = ["play", "disconnect", "stop", "skip", "pause", "resume", "loop", "shuffle", "lowpass"]
@@ -398,7 +398,7 @@ class System(commands.Cog):
 
 async def setup(bot: commands.Bot):
     node = wavelink.Pool.get_node()
-    if not node or not node.is_connected:
+    if not node or node.status != wavelink.NodeStatus.CONNECTED:
          print("WARNING: Wavelink node not ready during combined setup.") # Keep one critical warning
          # Consider await asyncio.sleep(5) or raising error if node is absolutely mandatory at load time
     try: await bot.add_cog(Music(bot))
