@@ -1,4 +1,3 @@
-# --- START OF FILE bot.py ---
 
 import os
 import discord
@@ -8,13 +7,13 @@ import asyncio
 import logging
 from pathlib import Path
 try:
-    import wavelink
+    import wavelink # Use Wavelink
 except ImportError:
     logging.critical("wavelink is not installed! Please install it: pip install wavelink")
     exit("Error: wavelink dependency missing.")
 from typing import Optional
 
-# --- Configuration & Logging Setup (Keep as is) ---
+# --- Configuration & Logging Setup ---
 load_dotenv()
 log_level_str = os.getenv('LOG_LEVEL', 'INFO').upper()
 log_level = getattr(logging, log_level_str, logging.INFO)
@@ -36,28 +35,13 @@ if not TOKEN:
     exit("Error: DISCORD_TOKEN is required.")
 CLIENT_ID = os.getenv('DISCORD_CLIENT_ID')
 DEFAULT_PREFIX = os.getenv('DEFAULT_PREFIX', '!')
+# These env vars can be used by cogs if needed
 DEFAULT_VOLUME = int(os.getenv('DEFAULT_VOLUME', 100))
 MAX_PLAYLIST_SIZE = int(os.getenv('MAX_PLAYLIST_SIZE', 100))
 MAX_QUEUE_SIZE = int(os.getenv('MAX_QUEUE_SIZE', 1000))
 CACHE_DIR = Path(os.getenv('CACHE_DIR', './cache'))
 CACHE_DIR.mkdir(exist_ok=True)
 # --- End Configuration & Logging ---
-
-
-# --- Global Wavelink Event Listeners ---
-# These need access to the node, which will be on the bot instance.
-# We can define them here and attach them in setup_hook using the bot instance.
-
-async def on_lava_ready(event: wavelink.ReadyEvent):
-    """Called when a Wavelink node is ready."""
-    # We assume 'bot' is the global instance later, or pass node if needed.
-    logger.info(f"Wavelink Node '{event.node.identifier}' is ready!")
-
-async def on_websocket_closed(event: wavelink.WebSocketClosedEvent):
-    """Called when the Wavelink websocket connection closes."""
-    logger.error(f"Wavelink WS closed for Node '{event.node.identifier}'! "
-                 f"Code: {event.code}, Reason: {event.reason}, Guild: {event.guild_id}")
-# --------------------------------------
 
 
 # --- Bot Class Definition ---
@@ -68,18 +52,16 @@ class MusicBot(commands.Bot):
         intents.voice_states = True
         intents.message_content = True
         intents.guilds = True
-        intents.members = True # If needed by other cogs/features
+        intents.members = False # Keep False unless specifically needed for other features
         intents.guild_messages = True
 
         # Initialize commands.Bot
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
 
-        # Initialize Wavelink node placeholder
-        self.wavelink_node: Optional[wavelink.Node] = None
+        self.wavelink_node: Optional[wavelink.Node] = None # Store the node reference if needed, though NodePool is often used
 
     async def load_extensions(self):
         """Loads cogs from the 'cogs' directory."""
-        # Now uses self.load_extension
         logger.info("Loading extensions...")
         cogs_loaded = 0
         cogs_dir = Path('./cogs')
@@ -87,15 +69,17 @@ class MusicBot(commands.Bot):
             logger.warning(f"Cogs directory '{cogs_dir}' not found. No extensions will be loaded.")
             return
 
-        if not self.wavelink_node: # Check self.wavelink_node
-             logger.error("Attempting to load extensions, but self.wavelink_node is not initialized!")
-             return
+        # Check if NodePool is ready before loading cogs that depend on it
+        if not wavelink.NodePool.nodes:
+             logger.error("Attempting to load extensions, but Wavelink NodePool is not ready!")
+             # Decide if you want to prevent loading or just warn
+             # return # Option: Stop loading if NodePool isn't ready
 
         for filename in os.listdir(cogs_dir):
             if filename.endswith('.py') and not filename.startswith('_'):
                 extension_name = f'cogs.{filename[:-3]}'
                 try:
-                    await self.load_extension(extension_name) # Use self.load_extension
+                    await self.load_extension(extension_name)
                     logger.info(f"Successfully loaded extension: {extension_name}")
                     cogs_loaded += 1
                 except commands.ExtensionNotFound:
@@ -105,6 +89,7 @@ class MusicBot(commands.Bot):
                 except commands.NoEntryPointError:
                      logger.error(f"Extension '{extension_name}' has no setup() function.")
                 except commands.ExtensionFailed as e:
+                    # Log the original exception for better debugging
                     logger.error(f"Failed to load extension {extension_name}: {e.original}", exc_info=True)
                 except Exception as e:
                     logger.error(f"An unexpected error occurred loading extension {extension_name}: {e}", exc_info=True)
@@ -115,10 +100,7 @@ class MusicBot(commands.Bot):
         logger.info("Running setup_hook...")
 
         if not self.user:
-            # This check might run before the user is fully available,
-            # but user ID should be ready shortly after login.
-            # Wait a brief moment if needed, though usually setup_hook runs late enough.
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.1) # Brief wait for user object availability
             if not self.user:
                 logger.error("Bot user not available during setup_hook. Cannot initialize Wavelink.")
                 return
@@ -129,27 +111,41 @@ class MusicBot(commands.Bot):
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
+            node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE") # Optional identifier
 
-            self.wavelink_node = wavelink.Node(uri=f"http://{lavalink_host}:{lavalink_port}", password=lavalink_password)
-            await wavelink.NodePool.connect(client=self, nodes=[self.wavelink_node])
+            # Construct the URI carefully
+            # Assuming http for standard Lavalink setup. Adjust if using ws/wss.
+            node_uri = f"http://{lavalink_host}:{lavalink_port}"
+            logger.debug(f"Attempting to connect Wavelink node '{node_id}' to {node_uri}")
 
-            logger.info(f"Successfully connected to Wavelink node at {lavalink_host}:{lavalink_port}")
+            # Create the node instance
+            node = wavelink.Node(
+                identifier=node_id,
+                uri=node_uri,
+                password=lavalink_password
+            )
+            self.wavelink_node = node # Store reference if needed
+
+            # Connect the node using NodePool
+            # Wavelink v3+ uses connect on NodePool
+            await wavelink.NodePool.connect(client=self, nodes=[node])
+            # Note: Node connection status is handled via events (on_wavelink_node_ready)
+
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
+            # Consider if exiting is the right approach or if the bot can run without music
             exit("Wavelink connection failed during setup.")
 
-        # --- Load Extensions AFTER Wavelink is set up ---
-        # This part only runs if all the above succeeds without exiting
+        # --- Load Extensions AFTER Wavelink setup attempt ---
         await self.load_extensions()
 
         # --- Sync Slash Commands AFTER extensions are loaded ---
         try:
             logger.info("Syncing slash commands...")
-            # Use self.tree
             synced = await self.tree.sync()
             logger.info(f"Synced {len(synced)} command(s) globally.")
-            # Optional guild sync:
-            # guild_id = YOUR_TEST_SERVER_ID
+            # Optional guild sync (uncomment and replace ID if needed):
+            # guild_id = 123456789012345678 # Replace with your test server ID
             # synced = await self.tree.sync(guild=discord.Object(id=guild_id))
             # logger.info(f"Synced {len(synced)} command(s) to guild {guild_id}")
         except Exception as e:
@@ -159,20 +155,30 @@ class MusicBot(commands.Bot):
 
     async def on_ready(self):
         """Called when the bot is ready (discord side)."""
-        # setup_hook runs before this
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
+        # Check node status via NodePool or stored reference
         node_status = "Not Initialized"
-        if self.wavelink_node:
-            node_status = "Connected" if self.wavelink_node.is_connected else "Connecting/Failed"
-        logger.info(f"Wavelink Node Status: {node_status}")
+        node = wavelink.NodePool.get_node() # Get default node
+        if node:
+            node_status = "Connected" if node.is_connected else "Connecting/Failed"
+            logger.info(f"Wavelink Node '{node.identifier}' Status: {node_status}")
+        else:
+             logger.warning("Wavelink NodePool has no nodes available.")
+
         logger.info("------")
         await self.change_presence(activity=discord.Game(name="Music! /play"))
 
+    # Optional: Add listener for Wavelink websocket close here if not handled in Cog
+    # @commands.Cog.listener() # This would need to be in a Cog or handled differently if defined here
+    # async def on_wavelink_websocket_closed(self, payload: wavelink.WebsocketClosedEventPayload):
+    #    logger.error(f"Wavelink WS closed for Node '{payload.node.identifier}'! "
+    #                 f"Code: {payload.code}, Reason: {payload.reason}, By Remote: {payload.remote}")
+
+
 # --- Main Execution ---
 async def main():
-    # Instantiate the bot class
     bot = MusicBot()
-    async with bot: # Use async context manager
+    async with bot:
         logger.info("Starting bot...")
         await bot.start(TOKEN)
 
@@ -189,5 +195,3 @@ if __name__ == "__main__":
         logger.critical(f"Bot crashed with an unexpected error: {e}", exc_info=True)
     finally:
         logger.info("Bot process ended.")
-
-# --- END OF FILE bot.py ---
