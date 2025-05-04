@@ -211,6 +211,7 @@ def start_lavalink():
 
     # --- Prepare Java Command ---
     # Increased logging and force IPv4 for further debugging
+    JAVA_EXECUTABLE = "/usr/lib/jvm/java-17-openjdk-amd64/bin/java" # Force Java 17
     java_command = [
         "java",
         "-Djava.net.preferIPv4Stack=true", # Force IPv4 - common network issue fix
