@@ -139,7 +139,7 @@ class MusicBot(commands.Bot):
         # Don't log node status here, rely on the on_wavelink_node_ready event listener
         logger.info("Bot is ready. Waiting for Wavelink node connection events...")
         logger.info("------")
-        await self.change_presence(activity=discord.Game(name="Music! /play"))
+        await self.change_presence(activity=discord.Game(name="Music! /player, Users! /users, GPU info! /gpuinfo"))
 
 # --- Main Execution ---
 async def main():
