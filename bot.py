@@ -91,20 +91,9 @@ class MusicBot(commands.Bot):
         logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
     async def setup_hook(self):
-        """Initialize Wavelink and load extensions here."""
-        logger.info("Running setup_hook...")
-
-        # Wait until the bot is ready before connecting nodes
-        # This ensures the bot's user ID and other info are available
-        await self.wait_until_ready()
-        logger.debug("Bot is ready after wait_until_ready.")
-
-        if not self.user: # Should not happen after wait_until_ready, but check anyway
-            logger.error("Bot user not available after wait_until_ready. Cannot initialize Wavelink.")
-            return
 
         # --- Initialize and Connect Wavelink Node using NodePool.connect ---
-        logger.info("Initializing Wavelink node using NodePool.connect...")
+        logger.info("Initializing Wavelink node ")
         try:
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
