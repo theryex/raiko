@@ -99,11 +99,10 @@ class MusicBot(commands.Bot):
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-            # Correcting node_id to match Lavalink's expected identifier
-            node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE")
+            # Remove hardcoded node_id and accept any identifier
+            node_id = os.getenv("LAVALINK_IDENTIFIER")
             if not node_id:
-                logger.warning("LAVALINK_IDENTIFIER is not set. Using default identifier 'DEFAULT_NODE'.")
-                node_id = "DEFAULT_NODE"
+                logger.warning("LAVALINK_IDENTIFIER is not set. Accepting any identifier.")
 
             # Log the node_id being used
             logger.debug(f"Using node identifier: {node_id}")
@@ -150,6 +149,20 @@ class MusicBot(commands.Bot):
         except asyncio.TimeoutError:
             logger.critical("Timeout waiting for Lavalink node to be ready. Exiting...")
             exit("Timeout waiting for Lavalink node to be ready.")
+
+        # Add periodic status check for node readiness
+        try:
+            for _ in range(30):  # Retry for up to 30 seconds
+                node = wavelink.Pool.get_node()
+                if node.status == wavelink.NodeStatus.CONNECTED:
+                    logger.info(f"Node '{node.identifier}' is ready and connected.")
+                    break
+                await asyncio.sleep(1)
+            else:
+                raise TimeoutError("Node did not reach CONNECTED state within the timeout period.")
+        except Exception as e:
+            logger.critical(f"Failed to confirm node readiness: {e}")
+            exit("Node readiness confirmation failed.")
 
         # Add event listener for node readiness
         @self.event
