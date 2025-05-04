@@ -74,7 +74,6 @@ class Music(commands.Cog):
         # --- Register Lavaplay Listeners for this Cog ---
         # Using the node instance directly as a decorator source
         self.lavalink_node.event_manager.add_listener(TrackStartEvent, self.on_track_start)
-        self.lavalink_node.event_manager.add_listener(QueueEndEvent, self.on_queue_end)
         self.lavalink_node.event_manager.add_listener(TrackEndEvent, self.on_track_end)
         self.lavalink_node.event_manager.add_listener(TrackExceptionEvent, self.on_track_exception)
         self.lavalink_node.event_manager.add_listener(TrackStuckEvent, self.on_track_stuck)
