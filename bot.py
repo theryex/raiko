@@ -92,92 +92,31 @@ class MusicBot(commands.Bot):
 
     async def setup_hook(self):
 
-        # --- Initialize and Connect Wavelink Node using pool.connect ---
-        logger.info("Initializing Wavelink node ")
+        # Simplify the connection process by removing readiness checks and event listeners
+        logger.info("Initializing Wavelink node")
         try:
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-            # Remove hardcoded node_id and accept any identifier
-            node_id = os.getenv("LAVALINK_IDENTIFIER")
-            if not node_id:
-                logger.warning("LAVALINK_IDENTIFIER is not set. Accepting any identifier.")
-
-            # Log the node_id being used
-            logger.debug(f"Using node identifier: {node_id}")
-
             node_uri = f"http://{lavalink_host}:{lavalink_port}"
-            logger.debug(f"Preparing node '{node_id}' for URI {node_uri}")
+            logger.debug(f"Connecting to Lavalink at {node_uri}")
 
-            # 1. Create the Node instance WITHOUT the client here
-            node = wavelink.Node(
-                identifier=node_id,
-                uri=node_uri,
-                password=lavalink_password
+            # Create and connect the node
+            await wavelink.Pool.connect(
+                nodes=[
+                    wavelink.Node(
+                        uri=node_uri,
+                        password=lavalink_password
+                    )
+                ],
+                client=self
             )
+            logger.info("Wavelink node connection initiated.")
 
-            # 2. Connect using Pool.connect, passing the client and list of nodes
-            # Add a timeout to prevent indefinite hanging
-            logger.debug("Starting Pool.connect task...")
-            connect_task = asyncio.create_task(wavelink.Pool.connect(nodes=[node], client=self))
-            await asyncio.wait_for(connect_task, timeout=30)  # Timeout after 30 seconds
-
-            logger.info(f"Wavelink Pool.connect called for node '{node_id}'. Waiting for node ready event...")
-
-        # Catch specific Wavelink exceptions if possible, otherwise general Exception
-        except asyncio.TimeoutError:
-            logger.critical("Wavelink connection timed out. Please check your Lavalink server.")
-            exit("Wavelink connection timed out during setup.")
-        except wavelink.InvalidClientException as e:
-            logger.critical(f"Wavelink connection failed: Invalid client provided. Error: {e}", exc_info=True)
-            exit("Wavelink connection failed during setup (Invalid Client).")
-        except wavelink.AuthorizationFailedException as e:
-            logger.critical(f"Wavelink connection failed: Authorization failed (check password?). Error: {e}", exc_info=True)
-            exit("Wavelink connection failed during setup (Authorization Failed).")
-        except wavelink.NodeException as e:
-            logger.critical(f"Wavelink connection failed: Node connection error (check URI/Lavalink server?). Error: {e}", exc_info=True)
-            exit("Wavelink connection failed during setup (Node Error).")
         except Exception as e:
-            logger.critical(f"Failed during Wavelink Pool.connect setup: {e}", exc_info=True)
-            exit("Wavelink connection failed during setup.")
-
-        # Add timeout handling for node readiness
-        try:
-            await asyncio.wait_for(self.wait_until_ready(), timeout=30)
-            logger.info("Bot is ready. Waiting for Wavelink node connection events...")
-        except asyncio.TimeoutError:
-            logger.critical("Timeout waiting for Lavalink node to be ready. Exiting...")
-            exit("Timeout waiting for Lavalink node to be ready.")
-
-        # Add periodic status check for node readiness
-        try:
-            for _ in range(30):  # Retry for up to 30 seconds
-                node = wavelink.Pool.get_node()
-                if node.status == wavelink.NodeStatus.CONNECTED:
-                    logger.info(f"Node '{node.identifier}' is ready and connected.")
-                    break
-                await asyncio.sleep(1)
-            else:
-                raise TimeoutError("Node did not reach CONNECTED state within the timeout period.")
-        except Exception as e:
-            logger.critical(f"Failed to confirm node readiness: {e}")
-            exit("Node readiness confirmation failed.")
-
-        # Add event listener for node readiness
-        @self.event
-        async def on_wavelink_node_ready(node):
-            logger.info(f"Wavelink node '{node.identifier}' is ready and connected.")
-
-        # Add event listener for node disconnection
-        @self.event
-        async def on_wavelink_node_disconnect(node):
-            logger.warning(f"Wavelink node '{node.identifier}' has disconnected.")
-
-        # Add event listener for node connection failure
-        @self.event
-        async def on_wavelink_node_connection_failed(node, error):
-            logger.error(f"Wavelink node '{node.identifier}' connection failed: {error}")
+            logger.critical(f"Failed to connect to Lavalink: {e}", exc_info=True)
+            exit("Lavalink connection failed.")
 
         # --- Load Extensions AFTER Wavelink setup attempt ---
         # Extensions should ideally wait for on_wavelink_node_ready if they need immediate node access
@@ -201,21 +140,6 @@ class MusicBot(commands.Bot):
         logger.info("Bot is ready. Waiting for Wavelink node connection events...")
         logger.info("------")
         await self.change_presence(activity=discord.Game(name="Music! /play"))
-
-        # Add debug log to confirm node readiness
-        @self.event
-        async def on_wavelink_node_ready(node):
-            logger.info(f"Wavelink node '{node.identifier}' is ready and connected.")
-
-        # Add debug log to confirm node disconnection
-        @self.event
-        async def on_wavelink_node_disconnect(node):
-            logger.warning(f"Wavelink node '{node.identifier}' has disconnected.")
-
-        # Add debug log to confirm node connection failure
-        @self.event
-        async def on_wavelink_node_connection_failed(node, error):
-            logger.error(f"Wavelink node '{node.identifier}' connection failed: {error}")
 
 # --- Main Execution ---
 async def main():
