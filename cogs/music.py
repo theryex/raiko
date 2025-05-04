@@ -9,9 +9,6 @@ import asyncio
 import os # For environment variables
 from typing import Optional, cast, Union
 
-# Ensure DEFAULT_VOLUME is imported from bot.py
-from bot import DEFAULT_VOLUME
-
 # Basic URL pattern (can be refined)
 URL_REGEX = re.compile(r'https?://(?:www\.)?.+')
 
@@ -45,9 +42,11 @@ class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
         self.inactivity_timers: dict[int, asyncio.Task] = {}
-        # Fetch queue/playlist limits from env vars once during init
+        # Access config via bot instance (assuming it's stored there or use os.getenv again)
+        self.default_volume = int(os.getenv('DEFAULT_VOLUME', 100)) # Get directly from env
         self.max_queue_size = int(os.getenv('MAX_QUEUE_SIZE', 1000))
         self.max_playlist_size = int(os.getenv('MAX_PLAYLIST_SIZE', 100))
+        logger.debug(f"Music cog initialized with default volume: {self.default_volume}")
 
     # --- Wavelink Event Listeners ---
 
@@ -355,7 +354,7 @@ class Music(commands.Cog):
         # Store the text channel on the player for later messages
         player.text_channel = interaction.channel
         # Set default volume (optional, can be a command)
-        await player.set_volume(DEFAULT_VOLUME) # Using volume from .env
+        await player.set_volume(self.default_volume) # Use the stored value
 
         # 3. Defer response while searching
         await interaction.response.defer(thinking=True)

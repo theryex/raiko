@@ -72,9 +72,11 @@ class MusicBot(commands.Bot):
             if filename.endswith('.py') and not filename.startswith('_'):
                 extension_name = f'cogs.{filename[:-3]}'
                 try:
+                    # Pass config values when loading the cog
                     await self.load_extension(extension_name)
+                    # OR if setup function takes args (less common for cogs):
+                    # await self.load_extension(extension_name, package=None, volume=DEFAULT_VOLUME)
                     logger.info(f"Successfully loaded extension: {extension_name}")
-                    cogs_loaded += 1
                 except commands.ExtensionNotFound:
                     logger.error(f"Extension not found: {extension_name}")
                 except commands.ExtensionAlreadyLoaded:
