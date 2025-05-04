@@ -7,7 +7,7 @@ try:
     import lavaplay
     # Import specific types needed
     from lavaplay import player, Track, PlayList, TrackLoadFailed, Filters
-    from lavaplay.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent, QueueEndEvent
+    from lavaplay.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent
 except ImportError:
     # This allows loading other cogs even if lavaplay isn't installed,
     # but this cog itself will fail to load properly later in setup.
@@ -153,12 +153,6 @@ class Music(commands.Cog):
             logger.debug(f"Could not fetch text channel ID or guild for Guild {guild_id} on TrackStartEvent.")
 
 
-    async def on_queue_end(self, event: QueueEndEvent):
-        player = event.player
-        guild_id = event.guild_id
-        logger.info(f"Queue ended for Guild {guild_id}. Player connected: {player.is_connected}")
-        # Start the inactivity disconnect timer
-        self._schedule_inactivity_check(guild_id)
 
     def _schedule_inactivity_check(self, guild_id: int):
         """Schedules the inactivity check task."""
