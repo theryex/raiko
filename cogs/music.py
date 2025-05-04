@@ -6,12 +6,12 @@ from discord.ext import commands
 try:
     import lavaplay
     # Import specific types needed
-    from lavaplay import player, Track, PlayList, TrackLoadFailed, Filters, Equalizer, Karaoke, Timescale, Tremolo, Vibrato, Distortion
+    from lavaplay import player, Track, PlayList, TrackLoadFailed, Filters
     from lavaplay.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent, QueueEndEvent
 except ImportError:
     # This allows loading other cogs even if lavaplay isn't installed,
     # but this cog itself will fail to load properly later in setup.
-    raise ImportError("lavaplay.py is not installed. Please install it using: pip install lavaplay.py")
+    raise ImportError("import error")
 # --- End LAVAPLAY Imports ---
 
 # --- Voice Client Import ---
