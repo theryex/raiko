@@ -95,9 +95,11 @@ class MusicBot(commands.Bot):
         # Wait until the bot is ready before connecting nodes
         # This ensures the bot's user ID and other info are available
         await self.wait_until_ready()
+        logger.debug("Bot is ready after wait_until_ready.")
+
         if not self.user: # Should not happen after wait_until_ready, but check anyway
-             logger.error("Bot user not available after wait_until_ready. Cannot initialize Wavelink.")
-             return
+            logger.error("Bot user not available after wait_until_ready. Cannot initialize Wavelink.")
+            return
 
         # --- Initialize and Connect Wavelink Node using NodePool.connect ---
         logger.info("Initializing Wavelink node using NodePool.connect...")
@@ -119,6 +121,7 @@ class MusicBot(commands.Bot):
 
             # 2. Connect using NodePool.connect, passing the client and list of nodes
             # Add a timeout to prevent indefinite hanging
+            logger.debug("Starting NodePool.connect task...")
             connect_task = asyncio.create_task(wavelink.NodePool.connect(nodes=[node], client=self))
             await asyncio.wait_for(connect_task, timeout=30)  # Timeout after 30 seconds
 
@@ -129,20 +132,21 @@ class MusicBot(commands.Bot):
             logger.critical("Wavelink connection timed out. Please check your Lavalink server.")
             exit("Wavelink connection timed out during setup.")
         except wavelink.InvalidClientException as e:
-             logger.critical(f"Wavelink connection failed: Invalid client provided. Error: {e}", exc_info=True)
-             exit("Wavelink connection failed during setup (Invalid Client).")
+            logger.critical(f"Wavelink connection failed: Invalid client provided. Error: {e}", exc_info=True)
+            exit("Wavelink connection failed during setup (Invalid Client).")
         except wavelink.AuthorizationFailedException as e:
-             logger.critical(f"Wavelink connection failed: Authorization failed (check password?). Error: {e}", exc_info=True)
-             exit("Wavelink connection failed during setup (Authorization Failed).")
+            logger.critical(f"Wavelink connection failed: Authorization failed (check password?). Error: {e}", exc_info=True)
+            exit("Wavelink connection failed during setup (Authorization Failed).")
         except wavelink.NodeException as e:
-             logger.critical(f"Wavelink connection failed: Node connection error (check URI/Lavalink server?). Error: {e}", exc_info=True)
-             exit("Wavelink connection failed during setup (Node Error).")
+            logger.critical(f"Wavelink connection failed: Node connection error (check URI/Lavalink server?). Error: {e}", exc_info=True)
+            exit("Wavelink connection failed during setup (Node Error).")
         except Exception as e:
             logger.critical(f"Failed during Wavelink NodePool.connect setup: {e}", exc_info=True)
             exit("Wavelink connection failed during setup.")
 
         # --- Load Extensions AFTER Wavelink setup attempt ---
         # Extensions should ideally wait for on_wavelink_node_ready if they need immediate node access
+        logger.debug("Loading extensions after Wavelink setup...")
         await self.load_extensions()
 
         # --- Sync Slash Commands AFTER extensions are loaded ---
