@@ -1,3 +1,4 @@
+
 import os
 import discord
 from discord.ext import commands
@@ -56,8 +57,7 @@ class MusicBot(commands.Bot):
 
         # Initialize commands.Bot
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
-        # Wavelink Node doesn't need to be stored here unless you have specific reasons
-        # Access nodes via wavelink.NodePool after setup
+        # Node Pool manages nodes; no need to store individual nodes here generally
 
     async def load_extensions(self):
         """Loads cogs from the 'cogs' directory."""
@@ -93,40 +93,54 @@ class MusicBot(commands.Bot):
         """Initialize Wavelink and load extensions here."""
         logger.info("Running setup_hook...")
 
-        if not self.user:
-            await asyncio.sleep(0.1) # Brief wait for user object availability
-            if not self.user:
-                logger.error("Bot user not available during setup_hook. Cannot initialize Wavelink.")
-                return
+        # Wait until the bot is ready before connecting nodes
+        # This ensures the bot's user ID and other info are available
+        await self.wait_until_ready()
+        if not self.user: # Should not happen after wait_until_ready, but check anyway
+             logger.error("Bot user not available after wait_until_ready. Cannot initialize Wavelink.")
+             return
 
-        # --- Initialize Wavelink Node ---
-        logger.info("Initializing Wavelink node...")
+        # --- Initialize and Connect Wavelink Node using NodePool.connect ---
+        logger.info("Initializing Wavelink node using NodePool.connect...")
         try:
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
             node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE")
 
-            # Create a Wavelink Node instance
+            node_uri = f"http://{lavalink_host}:{lavalink_port}"
+            logger.debug(f"Preparing node '{node_id}' for URI {node_uri}")
+
+            # 1. Create the Node instance WITHOUT the client here
             node = wavelink.Node(
                 identifier=node_id,
-                uri=f"http://{lavalink_host}:{lavalink_port}",
-                password=lavalink_password,
-                client=self
+                uri=node_uri,
+                password=lavalink_password
             )
 
-            # Connect the node
-            await node.connect()
+            # 2. Connect using NodePool.connect, passing the client and list of nodes
+            # This is the correct method according to the API reference provided.
+            await wavelink.NodePool.connect(nodes=[node], client=self)
+            # Connection status will be emitted via on_wavelink_node_ready event
 
-            logger.info(f"Wavelink node '{node_id}' created and connected successfully.")
-        except AttributeError as e:
-            logger.critical("Wavelink Node attribute not found. Ensure Wavelink is installed and up-to-date.", exc_info=True)
-            exit("Wavelink connection failed during setup.")
+            logger.info(f"Wavelink NodePool.connect called for node '{node_id}'. Waiting for node ready event...")
+
+        # Catch specific Wavelink exceptions if possible, otherwise general Exception
+        except wavelink.InvalidClientException as e:
+             logger.critical(f"Wavelink connection failed: Invalid client provided. Error: {e}", exc_info=True)
+             exit("Wavelink connection failed during setup (Invalid Client).")
+        except wavelink.AuthorizationFailedException as e:
+             logger.critical(f"Wavelink connection failed: Authorization failed (check password?). Error: {e}", exc_info=True)
+             exit("Wavelink connection failed during setup (Authorization Failed).")
+        except wavelink.NodeException as e:
+             logger.critical(f"Wavelink connection failed: Node connection error (check URI/Lavalink server?). Error: {e}", exc_info=True)
+             exit("Wavelink connection failed during setup (Node Error).")
         except Exception as e:
-            logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
+            logger.critical(f"Failed during Wavelink NodePool.connect setup: {e}", exc_info=True)
             exit("Wavelink connection failed during setup.")
 
         # --- Load Extensions AFTER Wavelink setup attempt ---
+        # Extensions should ideally wait for on_wavelink_node_ready if they need immediate node access
         await self.load_extensions()
 
         # --- Sync Slash Commands AFTER extensions are loaded ---
@@ -134,10 +148,6 @@ class MusicBot(commands.Bot):
             logger.info("Syncing slash commands...")
             synced = await self.tree.sync()
             logger.info(f"Synced {len(synced)} command(s) globally.")
-            # Optional guild sync:
-            # guild_id = YOUR_TEST_SERVER_ID
-            # synced = await self.tree.sync(guild=discord.Object(id=guild_id))
-            # logger.info(f"Synced {len(synced)} command(s) to guild {guild_id}")
         except Exception as e:
             logger.error(f"Failed to sync commands: {e}")
 
@@ -146,16 +156,8 @@ class MusicBot(commands.Bot):
     async def on_ready(self):
         """Called when the bot is ready (discord side)."""
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
-        # Node connection status is best checked via events (on_wavelink_node_ready)
-        # or by trying to get the node from the pool.
-        node = wavelink.NodePool.get_node() # Attempt to get the default node
-        if node and node.is_connected:
-            logger.info(f"Wavelink Node '{node.identifier}' is connected.")
-        elif node:
-            logger.warning(f"Wavelink Node '{node.identifier}' is available but status is: {node.status}")
-        else:
-             logger.warning("Wavelink NodePool has no nodes available or node failed to connect.")
-
+        # Don't log node status here, rely on the on_wavelink_node_ready event listener
+        logger.info("Bot is ready. Waiting for Wavelink node connection events...")
         logger.info("------")
         await self.change_presence(activity=discord.Game(name="Music! /play"))
 
@@ -168,7 +170,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        # Use asyncio.run for simplified top-level execution
         asyncio.run(main())
     except discord.errors.LoginFailure:
         logger.critical("Login Failure: Improper token passed. Make sure DISCORD_TOKEN is correct.")
@@ -181,4 +182,8 @@ if __name__ == "__main__":
     except Exception as e:
         logger.critical(f"Bot crashed with an unexpected error: {e}", exc_info=True)
     finally:
-        logger.info("Bot process ended.")
+        # Ensure logs indicate the process truly finished
+        logging.info("Bot process ended.")
+        logging.shutdown() # Explicitly shut down logging
+
+
