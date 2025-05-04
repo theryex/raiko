@@ -2,6 +2,8 @@
 server:
   port: 2333
   address: 127.0.0.1
+  connectionTimeout: 30000  # 30 seconds connection timeout
+  requestTimeout: 10000    # 10 seconds request timeout
 
 # Spring Boot settings (usually fine as is)
 spring:
@@ -29,6 +31,12 @@ lavalink:
     # youtubeSearchEnabled: true # Also for built-in source, plugin handles its own searching
     soundcloudSearchEnabled: true # Keep true if you want Lavalink's scsearch: to work
     gc-warnings: true # Logs Java garbage collection warnings
+    frameBufferDurationMs: 1000  # Increase frame buffer duration
+    nullFrameTimeout: 10000      # Increase null frame timeout
+    opusEncodingQuality: 10      # Higher quality opus encoding
+    resamplingQuality: HIGH      # Better resampling quality
+    trackStuckThresholdMs: 10000 # Increase stuck threshold
+    useSeekGhosting: true       # Enable seek ghosting for smoother seeking
 
 # --- Lavalink v4 Plugin Configuration ---
 # Plugins listed here are configured *after* being loaded from the /plugins JAR directory
@@ -36,33 +44,28 @@ plugins:
   # YouTube Plugin (lavalink-devs/youtube-source) Configuration
   youtube:
     enabled: true # Master switch for the plugin
-    # Add any specific YouTube plugin settings here if needed
-    # Default clients used by the plugin are usually sufficient
-    # clients:
-    #   - MUSIC
-    #   - WEB
-    #   - ANDROID
+    # Use default configuration for YouTube
 
   # Lavasrc Plugin (Spotify, Apple Music, Deezer) Configuration
   lavasrc:
     # List of providers to load music from (Spotify is default if section exists)
     providers:
       # Explicitly list enabled providers if you want fine control, otherwise defaults are used
-      - spotify # Requires clientId and clientSecret below
-      # - applemusic # Enable if needed and configured
-      # - deezer # Enable if needed and configured (may require master key)
+      - "spotify"     # Enable Spotify support
+      # - "applemusic" # Uncomment if needed
+      # - "deezer"    # Uncomment if needed
 
     # Spotify specific settings
     spotify:
-      clientId: ${SPOTIFY_CLIENT_ID} # MUST be set as SYSTEM ENV VAR before starting Lavalink
-      clientSecret: ${SPOTIFY_CLIENT_SECRET} # MUST be set as SYSTEM ENV VAR before starting Lavalink
+      clientId: ""      # Required: Add your Spotify Client ID here
+      clientSecret: ""  # Required: Add your Spotify Client Secret here
       countryCode: "US" # Optional: Use your country code to potentially bypass region locks
       playlistLoadLimit: 100 # Max tracks to load from a playlist
       albumLoadLimit: 100    # Max tracks to load from an album
       # searchLimit: 10 # Max results for Spotify search (if plugin supports it)
-      # cacheEnabled: true # Lavasrc internal caching (recommended)
-      # cacheSize: 1000
-      # cacheExpiry: 3600 # Seconds (1 hour)
+      cacheEnabled: true # Lavasrc internal caching (recommended)
+      cacheSize: 1000
+      cacheExpiry: 3600 # Seconds (1 hour)
 
     # Apple Music specific settings (Optional - remove if not used)
 #    applemusic:

@@ -187,7 +187,7 @@ class Music(commands.Cog):
         elif isinstance(original, app_commands.MissingPermissions): error_message = f"You lack permissions: {', '.join(original.missing_permissions)}"
         elif isinstance(original, app_commands.BotMissingPermissions): error_message = f"I lack permissions: {', '.join(original.missing_permissions)}"
         elif isinstance(original, app_commands.CommandOnCooldown): error_message = f"Cooldown! Try again in {original.retry_after:.2f}s."
-        elif isinstance(original, app_commands.RangeError): error_message = f"Value for `{original.name}` out of range ({original.minimum} - {original.maximum})."
+        elif isinstance(original, app_commands.TransformerError): error_message = f"Invalid value provided for `{original.parameter.name}`."
         elif isinstance(original, wavelink.ZeroConnectedNodes): error_message = "Music service connection lost."
         elif isinstance(original, wavelink.LavalinkLoadException): error_message = f"Error loading track: {original}"
         elif isinstance(original, wavelink.WavelinkException): error_message = f"Music service error: {original}"
