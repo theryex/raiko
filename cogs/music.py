@@ -233,8 +233,8 @@ class Music(commands.Cog):
 
         # Wavelink player is attached to guild.voice_client after connection
         player: Optional[wavelink.Player] = guild.voice_client
-        # Alternatively, use NodePool if player might detach from voice_client somehow
-        # player = wavelink.NodePool.get_node().get_player(guild)
+        # Alternatively, use pool if player might detach from voice_client somehow
+        # player = wavelink.pool.get_node().get_player(guild)
 
         if player and player.connected and not player.playing and player.queue.is_empty:
              logger.info(f"Disconnect timer finished, disconnecting inactive player for Guild {guild_id}")
@@ -258,7 +258,7 @@ class Music(commands.Cog):
         for task in self.inactivity_timers.values():
             task.cancel()
         self.inactivity_timers.clear()
-        # Wavelink listeners are usually managed globally or via NodePool,
+        # Wavelink listeners are usually managed globally or via pool,
         # specific cleanup might not be needed here unless listeners were added manually.
         logger.info("Music Cog unloaded, inactivity timers cancelled.")
 
@@ -277,7 +277,7 @@ class Music(commands.Cog):
             return False
 
         # Check if Wavelink node is available and connected
-        node = wavelink.NodePool.get_node()
+        node = wavelink.pool.get_node()
         if not node or not node.is_connected:
             logger.error("Interaction check failed: Wavelink node is not available or not connected.")
             await interaction.response.send_message("Music service is not available.", ephemeral=True)
@@ -700,10 +700,10 @@ class Music(commands.Cog):
 
 # --- Cog Setup Function ---
 async def setup(bot: commands.Bot):
-    # Check if Wavelink NodePool is ready before adding cog
+    # Check if Wavelink pool is ready before adding cog
     # Add a slightly longer delay to ensure node connection attempt has occurred
     await asyncio.sleep(2)
-    node = wavelink.NodePool.get_node()
+    node = wavelink.pool.get_node()
     if not node or not node.is_connected:
         logger.error("Music cog setup: Wavelink node is not available or not connected after delay. Cannot load Music cog.")
         raise commands.ExtensionFailed("Music", NameError("Wavelink node not available during Music cog setup"))
