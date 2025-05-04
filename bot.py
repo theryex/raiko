@@ -132,51 +132,57 @@ class MusicBot(commands.Bot):
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-            # Ensure the Lavalink node is properly created and connected
             if not lava:
-                logger.critical("Failed to initialize Lavalink instance. Ensure lavaplay is correctly installed.")
-                return
+                logger.critical("Failed to initialize Lavalink instance.")
+                exit("Lavalink library instance creation failed.") # Exit early
 
-            # Added logging to debug Lavalink node creation
             logger.debug(f"Lavalink node creation parameters: host={lavalink_host}, port={lavalink_port}, password={lavalink_password}")
-
-            # Added logging to verify self.user.id and handle Lavalink initialization failure
-            logger.debug(f"Attempting to create node with user_id: {self.user.id}")
+            logger.debug(f"Attempting to create node with user_id: {self.user.id}") # Keep this debug line
 
             self.lavalink_node = lava.create_node(
                 host=lavalink_host,
                 port=lavalink_port,
                 password=lavalink_password,
-                user_id=self.user.id,  # Use self.user.id
+                user_id=self.user.id,
             )
 
+            # --- Check if node object was created ---
             if self.lavalink_node is None:
-                logger.critical("lava.create_node returned None! Exiting application.")
-                exit("Lavalink connection failed during setup.")
-            else:
-                logger.info(f"lava.create_node returned a node object: {self.lavalink_node.identifier}")
+                logger.critical("lava.create_node returned None! Please verify Lavalink server is running and accessible, and connection parameters are correct.")
+                exit("Lavalink node creation returned None.") # Exit if creation failed
 
-            # Set the event loop using self.loop
+            logger.info(f"lava.create_node returned a node object. Attempting connection...") # Log object creation success
+
+            # Set event loop and add listeners BEFORE connecting
             self.lavalink_node.set_event_loop(self.loop)
-
-            # Add global listeners defined earlier, using the node instance
             self.lavalink_node.event_manager.add_listener(lavaplay.ReadyEvent, on_lava_ready)
             self.lavalink_node.event_manager.add_listener(lavaplay.WebSocketClosedEvent, on_websocket_closed)
 
-            # Connect the node
+            # --- Attempt Connection ---
             try:
                 await self.lavalink_node.connect()
-                logger.info(f"Successfully connected to Lavalink node at {lavalink_host}:{lavalink_port}")
+                # --- Log identifier AFTER successful connection ---
+                # Add a small delay to allow the ReadyEvent and identifier assignment potentially
+                await asyncio.sleep(0.5)
+                if self.lavalink_node.stats: # Check if stats are available (good sign of connection)
+                    # Safely access identifier now
+                    node_identifier = getattr(self.lavalink_node, 'identifier', 'N/A') # Use getattr for safety
+                    logger.info(f"Successfully connected to Lavalink node '{node_identifier}' at {lavalink_host}:{lavalink_port}")
+                else:
+                     logger.warning("Lavalink node connect() returned, but node stats are not yet available. Connection might be partial or delayed.")
+
             except Exception as e:
-                logger.critical(f"Failed to connect Lavalink node: {e}", exc_info=True)
-                exit("Lavalink connection failed during setup.")
+                logger.critical(f"Failed to connect Lavalink node during connect() call: {e}", exc_info=True)
+                exit("Lavalink connection failed during connect() call.") # Exit if connection fails
 
         except Exception as e:
-            logger.critical(f"Failed to initialize or connect Lavalink node: {e}", exc_info=True)
-            exit("Lavalink connection failed during setup.")
+            # This outer except catches errors during initial setup (Lavalink(), create_node())
+            logger.critical(f"Failed during initial Lavalink setup phase: {e}", exc_info=True)
+            exit("Lavalink initialization failed.") # Exit on other setup errors
 
         # --- Load Extensions AFTER Lavalink is set up ---
-        await self.load_extensions() # Call the method
+        # This part only runs if all the above succeeds without exiting
+        await self.load_extensions()
 
         # --- Sync Slash Commands AFTER extensions are loaded ---
         try:
