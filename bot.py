@@ -105,24 +105,22 @@ class MusicBot(commands.Bot):
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
-            node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE") # Optional identifier
+            node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE")
 
-            node_uri = f"http://{lavalink_host}:{lavalink_port}"
-            logger.debug(f"Attempting to create Wavelink node '{node_id}' at {node_uri}")
-
-            # Use NodePool.create_node to add the node
-            await wavelink.NodePool.create_node(
-                bot=self,
-                host=lavalink_host,
-                port=lavalink_port,
+            # Create a Wavelink Node instance
+            node = wavelink.Node(
+                identifier=node_id,
+                uri=f"http://{lavalink_host}:{lavalink_port}",
                 password=lavalink_password,
-                identifier=node_id
+                client=self
             )
 
-            logger.info(f"Wavelink node '{node_id}' created successfully.")
+            # Connect the node
+            await node.connect()
 
+            logger.info(f"Wavelink node '{node_id}' created and connected successfully.")
         except AttributeError as e:
-            logger.critical("Wavelink NodePool attribute not found. Ensure Wavelink is installed and up-to-date.", exc_info=True)
+            logger.critical("Wavelink Node attribute not found. Ensure Wavelink is installed and up-to-date.", exc_info=True)
             exit("Wavelink connection failed during setup.")
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
