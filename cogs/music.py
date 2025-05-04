@@ -1,4 +1,3 @@
-
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -9,6 +8,9 @@ import math
 import asyncio
 import os # For environment variables
 from typing import Optional, cast, Union
+
+# Ensure DEFAULT_VOLUME is imported from bot.py
+from bot import DEFAULT_VOLUME
 
 # Basic URL pattern (can be refined)
 URL_REGEX = re.compile(r'https?://(?:www\.)?.+')
