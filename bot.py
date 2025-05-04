@@ -98,7 +98,15 @@ class MusicBot(commands.Bot):
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
+
+            # Correcting node_id to match Lavalink's expected identifier
             node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE")
+            if not node_id:
+                logger.warning("LAVALINK_IDENTIFIER is not set. Using default identifier 'DEFAULT_NODE'.")
+                node_id = "DEFAULT_NODE"
+
+            # Log the node_id being used
+            logger.debug(f"Using node identifier: {node_id}")
 
             node_uri = f"http://{lavalink_host}:{lavalink_port}"
             logger.debug(f"Preparing node '{node_id}' for URI {node_uri}")
