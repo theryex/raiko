@@ -224,86 +224,16 @@ class Music(commands.Cog):
     @app_commands.command(name="play", description="Plays or queues music (YouTube, SoundCloud, Spotify URL/Search).")
     @app_commands.describe(query='URL or search term')
     async def play(self, interaction: discord.Interaction, *, query: str):
-        if not interaction.user.voice or not interaction.user.voice.channel:
-            return await interaction.response.send_message("You need to be in a voice channel.", ephemeral=True)
-        user_channel = interaction.user.voice.channel
-
-        player: wavelink.Player
-        if not interaction.guild.voice_client:
-            try:
-                player = await user_channel.connect(cls=wavelink.Player, self_deaf=True)
-            except discord.ClientException:
-                return await interaction.response.send_message("Already connecting to a voice channel.", ephemeral=True)
-            except asyncio.TimeoutError:
-                return await interaction.response.send_message("Timed out connecting to the voice channel.", ephemeral=True)
-            except Exception as e:
-                return await interaction.response.send_message(f"Failed to connect: {e}", ephemeral=True)
-        else:
-            player = cast(wavelink.Player, interaction.guild.voice_client)
-            if player.channel.id != user_channel.id:
-                return await interaction.response.send_message(f"You must be in the same voice channel as the bot (<#{player.channel.id}>).", ephemeral=True)
-
-        player.text_channel = interaction.channel
-        await player.set_volume(self.default_volume)
-
-        await interaction.response.defer(thinking=True)
-
         try:
-            search_query = query.strip('<>')
-            tracks: wavelink.Search = await wavelink.Playable.search(search_query)
-
-            if not tracks:
-                return await interaction.followup.send(f"Could not find any results for `{query}`.", ephemeral=True)
-
-        except wavelink.LavalinkLoadException as e:
-            return await interaction.followup.send(f"Error loading tracks: {e}", ephemeral=True)
-        except Exception:
-            return await interaction.followup.send("An unexpected error occurred during search.", ephemeral=True)
-
-        added_count = 0
-        skipped_count = 0
-        followup_message = ""
-
-        if isinstance(tracks, wavelink.Playlist):
-            playlist_name = tracks.name or "Unnamed Playlist"
-            tracks_to_consider = tracks.tracks[:self.max_playlist_size]
-
-            tracks_to_add = []
-            for track in tracks_to_consider:
-                if player.queue.count + added_count < self.max_queue_size:
-                    track.extras = {'requester': interaction.user.id}
-                    tracks_to_add.append(track)
-                    added_count += 1
-                else:
-                    skipped_count += 1
-
-            if tracks_to_add:
-                player.queue.extend(tracks_to_add)
-
-            followup_message = f"✅ Added **{added_count}** tracks from playlist **`{discord.utils.escape_markdown(playlist_name)}`**."
-            if len(tracks.tracks) > self.max_playlist_size:
-                followup_message += f" (Playlist capped at {self.max_playlist_size})"
-            if skipped_count > 0:
-                followup_message += f" (Queue full, skipped {skipped_count})"
-
-        elif tracks:
-            track = tracks[0]
-            if player.queue.count < self.max_queue_size:
-                track.extras = {'requester': interaction.user.id}
-                await player.queue.put_wait(track)
-                followup_message = f"✅ Added **`{discord.utils.escape_markdown(track.title)}`** to the queue."
-                added_count = 1
-            else:
-                followup_message = f"❌ Queue is full (Max: {self.max_queue_size}). Could not add **`{discord.utils.escape_markdown(track.title)}`**."
-
-        else:
-            followup_message = "Received an unexpected empty result."
-
-        await interaction.followup.send(followup_message)
-
-        if added_count > 0 and not player.playing:
-            first_track = player.queue.get()
-            await player.play(first_track)
+            # Only do this!
+            await interaction.response.send_message(f"DEBUG: Play command received for '{query}'!", ephemeral=True)
+        except Exception as e:
+            print(f"ERROR in simplified play: {e}") # Log errors to console
+            # Try a followup just in case response failed
+            try:
+                await interaction.followup.send("DEBUG: Error sending initial response.", ephemeral=True)
+            except:
+                pass
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel.")
     async def disconnect(self, interaction: discord.Interaction):
