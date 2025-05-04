@@ -221,7 +221,7 @@ class Music(commands.Cog):
         except discord.HTTPException:
             pass
 
-    @app_commands.command(name="play", description="Plays or queues music (YouTube, SoundCloud, Spotify URL/Search).")
+    @app_commands.command(name="player", description="Plays or queues music (YouTube, SoundCloud, Spotify URL/Search).")
     @app_commands.describe(query='URL or search term')
     async def play(self, interaction: discord.Interaction, *, query: str):
         try:
