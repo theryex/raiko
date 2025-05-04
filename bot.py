@@ -1,4 +1,3 @@
-
 import os
 import discord
 from discord.ext import commands
@@ -109,23 +108,21 @@ class MusicBot(commands.Bot):
             node_id = os.getenv("LAVALINK_IDENTIFIER", "DEFAULT_NODE") # Optional identifier
 
             node_uri = f"http://{lavalink_host}:{lavalink_port}"
-            logger.debug(f"Attempting to connect Wavelink node '{node_id}' to {node_uri}")
+            logger.debug(f"Attempting to create Wavelink node '{node_id}' at {node_uri}")
 
-            # Create the node instance
-            node = wavelink.Node(
-                identifier=node_id,
-                uri=node_uri,
-                password=lavalink_password
+            # Use NodePool.create_node to add the node
+            await wavelink.NodePool.create_node(
+                bot=self,
+                host=lavalink_host,
+                port=lavalink_port,
+                password=lavalink_password,
+                identifier=node_id
             )
 
-            # --- Connect the node using node.connect() (Wavelink v3+) ---
-            await node.connect(client=self)
-            # NodePool manages connected nodes implicitly after node.connect() succeeds
+            logger.info(f"Wavelink node '{node_id}' created successfully.")
 
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
-            # Using exit() here can cause the 'Unclosed client session' error.
-            # A cleaner exit might involve `await self.close()`, but `exit()` is okay for debugging.
             exit("Wavelink connection failed during setup.")
 
         # --- Load Extensions AFTER Wavelink setup attempt ---
