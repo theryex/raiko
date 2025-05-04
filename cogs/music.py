@@ -6,10 +6,8 @@ from discord.ext import commands
 try:
     import lavaplay
     # Import specific types needed
-    from lavaplay import (
-        Player, Track, PlayList, TrackLoadFailed, Filters, LowPass, Rotation, Equalizer, Karaoke, Timescale, Tremolo, Vibrato, Distortion, # Filters
-        ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent, QueueEndEvent # Events
-    )
+    from lavaplay import player, Track, PlayList, TrackLoadFailed, Filters, LowPass, Rotation, Equalizer, Karaoke, Timescale, Tremolo, Vibrato, Distortion
+    from lavaplay.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent, QueueEndEvent
 except ImportError:
     # This allows loading other cogs even if lavaplay isn't installed,
     # but this cog itself will fail to load properly later in setup.

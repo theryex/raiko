@@ -132,13 +132,22 @@ class MusicBot(commands.Bot):
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-            # Assign node to self.lavalink_node
+            # Ensure the Lavalink node is properly created and connected
+            if not lava:
+                logger.critical("Failed to initialize Lavalink instance. Ensure lavaplay is correctly installed.")
+                return
+
             self.lavalink_node = lava.create_node(
                 host=lavalink_host,
                 port=lavalink_port,
                 password=lavalink_password,
-                user_id=self.user.id, # Use self.user.id
+                user_id=self.user.id,  # Use self.user.id
             )
+
+            if not self.lavalink_node:
+                logger.critical("Failed to create Lavalink node. Check the configuration and lavaplay version.")
+                return
+
             # Set the event loop using self.loop
             self.lavalink_node.set_event_loop(self.loop)
 
@@ -147,8 +156,11 @@ class MusicBot(commands.Bot):
             self.lavalink_node.event_manager.add_listener(lavaplay.WebSocketClosedEvent, on_websocket_closed)
 
             # Connect the node
-            await self.lavalink_node.connect()
-            logger.info(f"Attempted connection to Lavalink node at {lavalink_host}:{lavalink_port}")
+            try:
+                await self.lavalink_node.connect()
+                logger.info(f"Successfully connected to Lavalink node at {lavalink_host}:{lavalink_port}")
+            except Exception as e:
+                logger.critical(f"Failed to connect Lavalink node: {e}", exc_info=True)
 
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Lavalink node: {e}", exc_info=True)
