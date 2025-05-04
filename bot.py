@@ -8,10 +8,10 @@ import asyncio
 import logging
 from pathlib import Path
 try:
-    import lavaplay
+    import wavelink
 except ImportError:
-    logging.critical("lavaplay.py is not installed! Please install it: pip install lavaplay.py")
-    exit("Error: lavaplay.py dependency missing.")
+    logging.critical("wavelink is not installed! Please install it: pip install wavelink")
+    exit("Error: wavelink dependency missing.")
 from typing import Optional
 
 # --- Configuration & Logging Setup (Keep as is) ---
@@ -44,18 +44,18 @@ CACHE_DIR.mkdir(exist_ok=True)
 # --- End Configuration & Logging ---
 
 
-# --- Global Lavaplay Event Listeners ---
+# --- Global Wavelink Event Listeners ---
 # These need access to the node, which will be on the bot instance.
 # We can define them here and attach them in setup_hook using the bot instance.
 
-async def on_lava_ready(event: lavaplay.ReadyEvent):
-    """Called when a Lavalink node is ready."""
+async def on_lava_ready(event: wavelink.ReadyEvent):
+    """Called when a Wavelink node is ready."""
     # We assume 'bot' is the global instance later, or pass node if needed.
-    logger.info(f"Lavalink Node '{event.node.identifier}' is ready!")
+    logger.info(f"Wavelink Node '{event.node.identifier}' is ready!")
 
-async def on_websocket_closed(event: lavaplay.WebSocketClosedEvent):
-    """Called when the Lavalink websocket connection closes."""
-    logger.error(f"Lavalink WS closed for Node '{event.node.identifier}'! "
+async def on_websocket_closed(event: wavelink.WebSocketClosedEvent):
+    """Called when the Wavelink websocket connection closes."""
+    logger.error(f"Wavelink WS closed for Node '{event.node.identifier}'! "
                  f"Code: {event.code}, Reason: {event.reason}, Guild: {event.guild_id}")
 # --------------------------------------
 
@@ -74,8 +74,8 @@ class MusicBot(commands.Bot):
         # Initialize commands.Bot
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
 
-        # Initialize Lavalink node placeholder
-        self.lavalink_node: Optional[lavaplay.Node] = None
+        # Initialize Wavelink node placeholder
+        self.wavelink_node: Optional[wavelink.Node] = None
 
     async def load_extensions(self):
         """Loads cogs from the 'cogs' directory."""
@@ -87,8 +87,8 @@ class MusicBot(commands.Bot):
             logger.warning(f"Cogs directory '{cogs_dir}' not found. No extensions will be loaded.")
             return
 
-        if not self.lavalink_node: # Check self.lavalink_node
-             logger.error("Attempting to load extensions, but self.lavalink_node is not initialized!")
+        if not self.wavelink_node: # Check self.wavelink_node
+             logger.error("Attempting to load extensions, but self.wavelink_node is not initialized!")
              return
 
         for filename in os.listdir(cogs_dir):
@@ -111,8 +111,7 @@ class MusicBot(commands.Bot):
         logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
     async def setup_hook(self):
-        """Initialize Lavalink and load extensions here. Runs automatically."""
-        # This is now a method of the class, uses 'self'
+        """Initialize Wavelink and load extensions here."""
         logger.info("Running setup_hook...")
 
         if not self.user:
@@ -121,66 +120,25 @@ class MusicBot(commands.Bot):
             # Wait a brief moment if needed, though usually setup_hook runs late enough.
             await asyncio.sleep(0.1)
             if not self.user:
-                logger.error("Bot user not available during setup_hook. Cannot initialize Lavalink.")
+                logger.error("Bot user not available during setup_hook. Cannot initialize Wavelink.")
                 return
 
-        # --- Initialize Lavalink Node ---
-        logger.info("Initializing Lavalink node...")
+        # --- Initialize Wavelink Node ---
+        logger.info("Initializing Wavelink node...")
         try:
-            lava = lavaplay.Lavalink()
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
-            if not lava:
-                logger.critical("Failed to initialize Lavalink instance.")
-                exit("Lavalink library instance creation failed.") # Exit early
+            self.wavelink_node = wavelink.Node(uri=f"http://{lavalink_host}:{lavalink_port}", password=lavalink_password)
+            await wavelink.NodePool.connect(client=self, nodes=[self.wavelink_node])
 
-            logger.debug(f"Lavalink node creation parameters: host={lavalink_host}, port={lavalink_port}, password={lavalink_password}")
-            logger.debug(f"Attempting to create node with user_id: {self.user.id}") # Keep this debug line
-
-            self.lavalink_node = lava.create_node(
-                host=lavalink_host,
-                port=lavalink_port,
-                password=lavalink_password,
-                user_id=self.user.id,
-            )
-
-            # --- Check if node object was created ---
-            if self.lavalink_node is None:
-                logger.critical("lava.create_node returned None! Please verify Lavalink server is running and accessible, and connection parameters are correct.")
-                exit("Lavalink node creation returned None.") # Exit if creation failed
-
-            logger.info(f"lava.create_node returned a node object. Attempting connection...") # Log object creation success
-
-            # Set event loop and add listeners BEFORE connecting
-            self.lavalink_node.set_event_loop(self.loop)
-            self.lavalink_node.event_manager.add_listener(lavaplay.ReadyEvent, on_lava_ready)
-            self.lavalink_node.event_manager.add_listener(lavaplay.WebSocketClosedEvent, on_websocket_closed)
-
-            # --- Attempt Connection ---
-            try:
-                await self.lavalink_node.connect()
-                # --- Log identifier AFTER successful connection ---
-                # Add a small delay to allow the ReadyEvent and identifier assignment potentially
-                await asyncio.sleep(0.5)
-                if self.lavalink_node.stats: # Check if stats are available (good sign of connection)
-                    # Safely access identifier now
-                    node_identifier = getattr(self.lavalink_node, 'identifier', 'N/A') # Use getattr for safety
-                    logger.info(f"Successfully connected to Lavalink node '{node_identifier}' at {lavalink_host}:{lavalink_port}")
-                else:
-                     logger.warning("Lavalink node connect() returned, but node stats are not yet available. Connection might be partial or delayed.")
-
-            except Exception as e:
-                logger.critical(f"Failed to connect Lavalink node during connect() call: {e}", exc_info=True)
-                exit("Lavalink connection failed during connect() call.") # Exit if connection fails
-
+            logger.info(f"Successfully connected to Wavelink node at {lavalink_host}:{lavalink_port}")
         except Exception as e:
-            # This outer except catches errors during initial setup (Lavalink(), create_node())
-            logger.critical(f"Failed during initial Lavalink setup phase: {e}", exc_info=True)
-            exit("Lavalink initialization failed.") # Exit on other setup errors
+            logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
+            exit("Wavelink connection failed during setup.")
 
-        # --- Load Extensions AFTER Lavalink is set up ---
+        # --- Load Extensions AFTER Wavelink is set up ---
         # This part only runs if all the above succeeds without exiting
         await self.load_extensions()
 
@@ -204,9 +162,9 @@ class MusicBot(commands.Bot):
         # setup_hook runs before this
         logger.info(f"Logged in as {self.user} (ID: {self.user.id})")
         node_status = "Not Initialized"
-        if self.lavalink_node:
-            node_status = "Connected" if self.lavalink_node.stats else "Connecting/Failed"
-        logger.info(f"Lavalink Node Status: {node_status}")
+        if self.wavelink_node:
+            node_status = "Connected" if self.wavelink_node.is_connected else "Connecting/Failed"
+        logger.info(f"Wavelink Node Status: {node_status}")
         logger.info("------")
         await self.change_presence(activity=discord.Game(name="Music! /play"))
 

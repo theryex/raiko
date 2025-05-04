@@ -1,5 +1,5 @@
 discord.py>=2.5.2
 python-dotenv>=1.0.0
 yt-dlp>=2023.12.30
-lavalink>=5.9.0
+wavelink>=1.0.0
 PyNaCl>=1.5.0

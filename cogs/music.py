@@ -2,17 +2,17 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-# --- LAVAPLAY Imports ---
+# --- WAVELINK Imports ---
 try:
-    import lavaplay
+    import wavelink
     # Import specific types needed
-    from lavaplay import player, Track, PlayList, TrackLoadFailed, Filters
-    from lavaplay.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent
+    from wavelink import player, Track, PlayList, TrackLoadFailed, Filters
+    from wavelink.events import ReadyEvent, TrackStartEvent, TrackEndEvent, TrackExceptionEvent, TrackStuckEvent, WebSocketClosedEvent
 except ImportError:
-    # This allows loading other cogs even if lavaplay isn't installed,
+    # This allows loading other cogs even if wavelink isn't installed,
     # but this cog itself will fail to load properly later in setup.
     raise ImportError("import error")
-# --- End LAVAPLAY Imports ---
+# --- End WAVELINK Imports ---
 
 # --- Voice Client Import ---
 # Assumes voice_client.py is in the root directory relative to where bot.py runs
@@ -42,7 +42,7 @@ def format_duration(milliseconds: Optional[Union[int, float]]) -> str: # Allow f
     if milliseconds is None:
         return "N/A"
     try:
-        # lavaplay duration can be float
+        # wavelink duration can be float
         ms = int(float(milliseconds))
     except (ValueError, TypeError):
         return "N/A"
@@ -63,22 +63,26 @@ def format_duration(milliseconds: Optional[Union[int, float]]) -> str: # Allow f
 class Music(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        # Ensure Lavalink node is ready (it should be from bot.py's setup_hook)
-        if not hasattr(bot, 'lavalink_node') or bot.lavalink_node is None:
-            logger.critical("Lavalink node ('lavalink_node') not found on bot instance in Music Cog init!")
-            raise commands.ExtensionFailed("Music Cog", NameError("Lavalink node not found on bot instance"))
-
-        self.lavalink_node: lavaplay.Node = self.bot.lavalink_node
         self.inactivity_timers: dict[int, asyncio.Task] = {} # Store inactivity tasks per guild
 
-        # --- Register Lavaplay Listeners for this Cog ---
-        # Using the node instance directly as a decorator source
-        self.lavalink_node.event_manager.add_listener(TrackStartEvent, self.on_track_start)
-        self.lavalink_node.event_manager.add_listener(TrackEndEvent, self.on_track_end)
-        self.lavalink_node.event_manager.add_listener(TrackExceptionEvent, self.on_track_exception)
-        self.lavalink_node.event_manager.add_listener(TrackStuckEvent, self.on_track_stuck)
-        # Note: PlayerErrorEvent doesn't seem to exist in lavaplay. TrackException covers most cases.
-        # Note: WebSocketClosedEvent is handled globally in bot.py
+        # Ensure Wavelink node is ready
+        if not wavelink.NodePool.nodes:
+            logger.critical("Wavelink node pool is empty. Ensure setup_hook initializes nodes.")
+            raise commands.ExtensionFailed("Music Cog", NameError("Wavelink node pool is empty"))
+
+    @commands.Cog.listener()
+    async def on_wavelink_node_ready(self, node: wavelink.Node):
+        logger.info(f"Wavelink Node '{node.identifier}' is ready.")
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_start(self, player: wavelink.Player, track: wavelink.Track):
+        logger.info(f"Track started on Guild {player.guild.id}: {track.title}")
+
+    @commands.Cog.listener()
+    async def on_wavelink_track_end(self, player: wavelink.Player, track: wavelink.Track, reason):
+        logger.info(f"Track ended on Guild {player.guild.id}. Reason: {reason}")
+        if not player.queue:
+            await player.disconnect()
 
     def cog_unload(self):
         """ Cog cleanup """
@@ -86,12 +90,6 @@ class Music(commands.Cog):
         for task in self.inactivity_timers.values():
             task.cancel()
         self.inactivity_timers.clear()
-        # Remove listeners specific to this cog instance
-        # This requires storing the listener refs or iterating if using decorators isn't feasible
-        # For simplicity with add_listener, we might skip removal or handle it more robustly if needed.
-        # Example (if listeners were stored):
-        # self.lavalink_node.event_manager.remove_listener(TrackStartEvent, self.on_track_start)
-        # ... and so on for others added in __init__
         logger.info("Music Cog unloaded, inactivity timers cancelled.")
 
 
@@ -121,8 +119,8 @@ class Music(commands.Cog):
                 title = discord.utils.escape_markdown(track.title or "Unknown Title")
                 uri = track.uri or "#"
                 author = discord.utils.escape_markdown(track.author or "Unknown Author")
-                duration_ms = track.length # lavaplay uses 'length'
-                requester_id = track.requester # lavaplay stores requester ID directly
+                duration_ms = track.length # wavelink uses 'length'
+                requester_id = track.requester # wavelink stores requester ID directly
 
                 desc = f"[{title}]({uri})\n"
                 desc += f"Author: {author}\n"
@@ -135,10 +133,10 @@ class Music(commands.Cog):
                     title="Now Playing",
                     description=desc
                 )
-                # lavaplay doesn't directly expose artwork_url in Track? Check if available via source specifics if needed
+                # wavelink doesn't directly expose artwork_url in Track? Check if available via source specifics if needed
                 # Example: if track.source == "youtube" and hasattr(track, 'identifier'):
                 #    embed.set_thumbnail(url=f"https://img.youtube.com/vi/{track.identifier}/mqdefault.jpg")
-                # Need to investigate best way to get thumbnails with lavaplay + plugins
+                # Need to investigate best way to get thumbnails with wavelink + plugins
 
                 try:
                     await channel.send(embed=embed)
@@ -172,7 +170,7 @@ class Music(commands.Cog):
         guild = self.bot.get_guild(guild_id)
 
         # Check again if player exists, is connected, not playing, and queue is empty
-        # lavaplay player state checks: player.is_playing, player.is_paused, player.is_connected, player.queue
+        # wavelink player state checks: player.is_playing, player.is_paused, player.is_connected, player.queue
         if player and player.is_connected and not player.is_playing and not player.queue:
              if guild and guild.voice_client:
                  logger.info(f"Disconnect timer finished, disconnecting inactive voice client for Guild {guild_id}")
@@ -197,7 +195,7 @@ class Music(commands.Cog):
         logger.info(f"Track ended on Guild {guild_id}. Reason: {reason}. Current queue size: {len(player.queue)}")
 
         # Only schedule inactivity if the queue ended naturally and the queue is now empty
-        # lavaplay reasons: 'FINISHED', 'LOAD_FAILED', 'STOPPED', 'REPLACED', 'CLEANUP'
+        # wavelink reasons: 'FINISHED', 'LOAD_FAILED', 'STOPPED', 'REPLACED', 'CLEANUP'
         if reason == 'FINISHED' and not player.queue:
              self._schedule_inactivity_check(guild_id)
         # Handle other reasons if needed (e.g., announce load failures)
@@ -255,9 +253,9 @@ class Music(commands.Cog):
         if not interaction.guild:
             await interaction.response.send_message("This command can only be used in a server!", ephemeral=True)
             return False
-        # Check if lavalink node is available
-        if not hasattr(self.bot, 'lavalink_node') or not self.lavalink_node or not self.lavalink_node.stats:
-            logger.error("Interaction check failed: Bot has no lavalink node or node is not connected.")
+        # Check if wavelink node is available
+        if not wavelink.NodePool.nodes:
+            logger.error("Interaction check failed: Bot has no wavelink node or node is not connected.")
             await interaction.response.send_message("Music service is not available or not connected.", ephemeral=True)
             return False
         return True
@@ -277,9 +275,9 @@ class Music(commands.Cog):
              error_message = f"You lack the required permissions: {', '.join(original.missing_permissions)}"
         elif isinstance(original, app_commands.BotMissingPermissions):
              error_message = f"I lack the required permissions: {', '.join(original.missing_permissions)}"
-        # Handle potential lavaplay errors (though TrackLoadFailed is handled in play)
-        # Example: Catching a generic lavaplay error if one were to bubble up
-        elif isinstance(original, lavaplay.LavalinkException):
+        # Handle potential wavelink errors (though TrackLoadFailed is handled in play)
+        # Example: Catching a generic wavelink error if one were to bubble up
+        elif isinstance(original, wavelink.WavelinkException):
              error_message = f"Music service error: {original}"
         elif isinstance(original, NameError) and 'LavalinkVoiceClient' in str(original):
              error_message = "Internal setup error: Could not find the voice client."
@@ -300,7 +298,7 @@ class Music(commands.Cog):
 
     # --- Slash Commands ---
 
-    @app_commands.command(name="play", description="Plays a song/playlist or adds it to the queue (YT, SC, Spotify supported by Lavalink).")
+    @app_commands.command(name="play", description="Plays a song/playlist or adds it to the queue (YT, SC, Spotify supported by Wavelink).")
     @app_commands.describe(query='URL (YouTube, SoundCloud, Spotify...) or search term')
     async def play(self, interaction: discord.Interaction, *, query: str):
         # 1. Ensure user is in VC
@@ -308,15 +306,15 @@ class Music(commands.Cog):
             return await interaction.response.send_message("You need to be in a voice channel to play music.", ephemeral=True)
         user_channel = interaction.user.voice.channel
 
-        # 2. Get or create Lavalink player
-        player = self.lavalink_node.get_player(interaction.guild_id)
-        if not player:
-            player = self.lavalink_node.create_player(interaction.guild_id)
-            logger.info(f"Created lavaplay player for Guild {interaction.guild_id}")
+        # 2. Get or create Wavelink player
+        player: wavelink.Player = wavelink.NodePool.get_node().get_player(interaction.guild)
+
+        if not player.is_connected:
+            await player.connect(user_channel.id)
 
         # 3. Check node availability (redundant due to interaction_check, but safe)
-        if not self.lavalink_node.stats:
-             logger.error(f"Play command failed for Guild {interaction.guild_id}: No available Lavalink nodes.")
+        if not wavelink.NodePool.nodes:
+             logger.error(f"Play command failed for Guild {interaction.guild_id}: No available Wavelink nodes.")
              return await interaction.response.send_message("Music service node is currently unavailable.", ephemeral=True)
 
         # 4. Connect or Ensure Correct Channel
@@ -353,27 +351,15 @@ class Music(commands.Cog):
             # Already connected to the right channel
             await interaction.response.defer(thinking=True) # Defer privately
 
-        # 5. Search for Tracks using lavaplay
+        # 5. Search for Tracks using wavelink
         try:
             search_query = query.strip('<>')
             logger.info(f"[{interaction.guild.name}] Getting tracks for: '{search_query}'")
 
-            # Use auto_search_tracks - it handles URLs and searches (ytsearch:, scsearch:)
-            results = await self.lavalink_node.auto_search_tracks(search_query)
-            # Optional: Log result type for debugging
-            # logger.debug(f"LoadResult Type: {type(results)}")
-
-            # --- Validate results ---
-            if isinstance(results, TrackLoadFailed):
-                 error_message = f"Failed to load track/playlist: {results.message}"
-                 logger.warning(f"{error_message} (Query: {search_query}, Severity: {results.severity})")
-                 await interaction.followup.send(f"❌ {error_message}", ephemeral=True)
-                 return
-            elif not results or (isinstance(results, list) and not results): # Handle empty list or None
-                 message = f"Could not find any results for `{query}`."
-                 logger.warning(f"{message} (Query: {search_query})")
-                 await interaction.followup.send(message, ephemeral=True)
-                 return
+            # Use YouTubeTrack search
+            track = await wavelink.YouTubeTrack.search(query=search_query, return_first=True)
+            if not track:
+                return await interaction.followup.send("No track found for the given query.", ephemeral=True)
 
             # --- Enforce Queue Limits ---
             current_queue_size = len(player.queue)
@@ -386,9 +372,9 @@ class Music(commands.Cog):
             track_to_play_now = None
 
             # --- Process results ---
-            if isinstance(results, PlayList):
-                playlist_name = results.name or "Unnamed Playlist"
-                tracks_to_consider = results.tracks[:max_playlist] # Apply playlist limit
+            if isinstance(track, PlayList):
+                playlist_name = track.name or "Unnamed Playlist"
+                tracks_to_consider = track.tracks[:max_playlist] # Apply playlist limit
 
                 tracks_to_add_to_queue = []
                 for track in tracks_to_consider:
@@ -399,7 +385,7 @@ class Music(commands.Cog):
                         skipped_count += 1
 
                 if tracks_to_add_to_queue:
-                     # Add tracks to lavaplay queue
+                     # Add tracks to wavelink queue
                      player.add_to_queue(tracks_to_add_to_queue, requester=interaction.user.id)
                      if not player.is_playing:
                           # If not playing, the first track added will be played automatically by play_playlist
@@ -407,21 +393,21 @@ class Music(commands.Cog):
                           pass
 
                 followup_message = f"✅ Added **{added_count}** tracks from playlist **`{discord.utils.escape_markdown(playlist_name)}`**."
-                if len(results.tracks) > max_playlist: followup_message += f" (Playlist capped at {max_playlist})"
+                if len(track.tracks) > max_playlist: followup_message += f" (Playlist capped at {max_playlist})"
                 if skipped_count > 0: followup_message += f" (Queue full, skipped {skipped_count})"
                 logger.info(f"Adding {added_count}/{len(tracks_to_consider)} tracks from playlist '{playlist_name}' for {interaction.user}. Skipped {skipped_count}.")
 
                 # Start playback if not playing and tracks were added
                 if not player.is_playing and added_count > 0:
-                    # Use play_playlist if you want Lavalink to manage the playlist context
-                    # await player.play_playlist(results) # This might replay the whole list? Check docs
+                    # Use play_playlist if you want Wavelink to manage the playlist context
+                    # await player.play_playlist(track) # This might replay the whole list? Check docs
                     # OR just play the first track normally if add_to_queue handles the rest
                     await player.play() # Should play the first track added
                     logger.info(f"Player not playing, starting playback from playlist for Guild {interaction.guild_id}")
 
 
-            elif isinstance(results, list): # Should be list[Track] from search
-                track = results[0] # Get the first track from search
+            elif isinstance(track, list): # Should be list[Track] from search
+                track = track[0] # Get the first track from search
                 if current_queue_size < max_queue:
                      player.add_to_queue([track], requester=interaction.user.id) # Add takes a list
                      followup_message = f"✅ Added **`{discord.utils.escape_markdown(track.title)}`** to the queue."
@@ -433,8 +419,8 @@ class Music(commands.Cog):
                      logger.warning(f"Queue full. Skipped track '{track.title}' for {interaction.user}")
 
             else:
-                # Should not happen with auto_search_tracks returning list, Playlist, or TrackLoadFailed
-                logger.error(f"Unexpected result type from auto_search_tracks: {type(results)}")
+                # Should not happen with YouTubeTrack search returning list, Playlist, or TrackLoadFailed
+                logger.error(f"Unexpected result type from YouTubeTrack search: {type(track)}")
                 await interaction.followup.send("Received an unexpected result type. Cannot process.", ephemeral=True)
                 return
 
@@ -446,9 +432,9 @@ class Music(commands.Cog):
                 logger.info(f"Player not playing, starting playback for single track for Guild {interaction.guild_id}")
                 await player.play() # Play the track that was just added
 
-        # Catch potential lavaplay errors during search/play
-        except lavaplay.LavalinkException as e:
-             logger.error(f"Lavalink Exception in play command: {e}", exc_info=True)
+        # Catch potential wavelink errors during search/play
+        except wavelink.WavelinkException as e:
+             logger.error(f"Wavelink Exception in play command: {e}", exc_info=True)
              try: await interaction.followup.send(f"Error interacting with music service: {e}", ephemeral=True)
              except discord.NotFound: pass
         except Exception as e:
@@ -470,7 +456,7 @@ class Music(commands.Cog):
 
         # Stop player and clear queue BEFORE telling discord.py to disconnect
         if player:
-            player.queue.clear() # Clear lavaplay queue
+            player.queue.clear() # Clear wavelink queue
             await player.stop() # Stop playback
             # Player destruction is handled by LavalinkVoiceClient.disconnect
 
@@ -510,8 +496,8 @@ class Music(commands.Cog):
     async def skip(self, interaction: discord.Interaction):
         player = self.lavalink_node.get_player(interaction.guild_id)
 
-        # lavaplay player.current might be None briefly between tracks
-        current_track = player.current # Get current track object from lavaplay player
+        # wavelink player.current might be None briefly between tracks
+        current_track = player.current # Get current track object from wavelink player
         if not player or not current_track:
             return await interaction.response.send_message("No song is currently playing to skip.", ephemeral=True)
 
@@ -522,7 +508,7 @@ class Music(commands.Cog):
         # Skip message
         skipped_msg = f"⏭️ Skipped **`{discord.utils.escape_markdown(current_title)}`**."
 
-        # Check queue *after* skip. lavaplay should handle this transition quickly.
+        # Check queue *after* skip. wavelink should handle this transition quickly.
         # player = self.lavalink_node.get_player(interaction.guild_id) # Re-fetch might be needed if state changes drastically
         # if not player.queue and not player.is_playing: # Check if queue is empty AND not immediately playing next
         #     skipped_msg += "\nQueue is now empty."
@@ -568,12 +554,12 @@ class Music(commands.Cog):
         if not player:
             return await interaction.response.send_message("Not connected or playing.", ephemeral=True)
 
-        # lavaplay loop states: 0 = OFF, 1 = TRACK, 2 = QUEUE
+        # wavelink loop states: 0 = OFF, 1 = TRACK, 2 = QUEUE
         current_loop = player.loop # Gets current state (0, 1, or 2)
 
         next_loop = (current_loop + 1) % 3
 
-        # Apply the next loop state using lavaplay methods
+        # Apply the next loop state using wavelink methods
         if next_loop == 0: # OFF
             await player.repeat(False)
             await player.queue_repeat(False)
@@ -598,7 +584,7 @@ class Music(commands.Cog):
         if not player or len(player.queue) < 2:
             return await interaction.response.send_message("The queue needs at least 2 songs to shuffle.", ephemeral=True)
 
-        # lavaplay doesn't have a toggle method, just enable/disable
+        # wavelink doesn't have a toggle method, just enable/disable
         # We need to track the state ourselves or just call shuffle() to reshuffle
         # Let's just reshuffle the existing queue when command is called
         player.shuffle() # Re-shuffles the queue in place
@@ -635,7 +621,7 @@ class Music(commands.Cog):
             embed.set_footer(text="0 songs in queue | Page 1/1")
         else:
             items_per_page = 10
-            queue_list = list(player.queue) # Get a copy of lavaplay queue
+            queue_list = list(player.queue) # Get a copy of wavelink queue
             total_items = len(queue_list)
             total_pages = math.ceil(total_items / items_per_page) if total_items > 0 else 1
 
@@ -684,7 +670,7 @@ class Music(commands.Cog):
             filters = Filters()
             # IMPORTANT: Applying a new Filters object resets ALL filters.
             # To modify existing filters, you'd need to fetch the current state,
-            # update it, then apply. lavaplay doesn't seem to have a simple way
+            # update it, then apply. wavelink doesn't seem to have a simple way
             # to get the current filter state easily from the player.
             # This command will just set LowPass and clear others.
 
@@ -703,9 +689,9 @@ class Music(commands.Cog):
 
             await interaction.response.send_message(embed=embed)
 
-        except lavaplay.LavalinkException as e:
-              logger.exception(f"Lavalink error applying filter: {e}")
-              await interaction.response.send_message(f"An error occurred applying the filter via Lavalink: {e}", ephemeral=True)
+        except wavelink.WavelinkException as e:
+              logger.exception(f"Wavelink error applying filter: {e}")
+              await interaction.response.send_message(f"An error occurred applying the filter via Wavelink: {e}", ephemeral=True)
         except Exception as e:
               logger.exception(f"Unexpected error applying filter: {e}")
               await interaction.response.send_message(f"An unexpected error occurred while applying the filter: {e}", ephemeral=True)
@@ -713,20 +699,20 @@ class Music(commands.Cog):
 
 # --- Cog Setup Function ---
 async def setup(bot: commands.Bot):
-    # Check if lavalink_node was initialized successfully in bot.py
-    if not hasattr(bot, 'lavalink_node') or bot.lavalink_node is None:
-        logger.error("Music cog setup: Lavalink node ('lavalink_node') not found on bot. Cannot load Music cog.")
-        # Prevent the cog from loading if Lavalink isn't ready
-        raise commands.ExtensionFailed("Music", NameError("Lavalink node not available during Music cog setup"))
+    # Check if wavelink node was initialized successfully in bot.py
+    if not wavelink.NodePool.nodes:
+        logger.error("Music cog setup: Wavelink node pool is empty. Cannot load Music cog.")
+        # Prevent the cog from loading if Wavelink isn't ready
+        raise commands.ExtensionFailed("Music", NameError("Wavelink node pool not available during Music cog setup"))
 
     # Check if node is connected (optional, but good indicator)
     # Adding a short wait might be needed if setup_hook connection is slow
     await asyncio.sleep(1) # Small delay to allow connection attempt
-    if not bot.lavalink_node.stats:
-         logger.warning("Music cog setup: Lavalink node found but not connected/no stats yet. Cog might face issues initially.")
+    if not wavelink.NodePool.nodes:
+         logger.warning("Music cog setup: Wavelink node pool found but not connected/no stats yet. Cog might face issues initially.")
          # Allow loading, but warn the user.
 
     await bot.add_cog(Music(bot))
-    logger.info("Music Cog (using lavaplay) loaded.")
+    logger.info("Music Cog (using wavelink) loaded.")
 
 # --- END OF FILE cogs/music.py ---
