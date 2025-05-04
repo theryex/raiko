@@ -121,6 +121,9 @@ class MusicBot(commands.Bot):
 
             logger.info(f"Wavelink node '{node_id}' created successfully.")
 
+        except AttributeError as e:
+            logger.critical("Wavelink NodePool attribute not found. Ensure Wavelink is installed and up-to-date.", exc_info=True)
+            exit("Wavelink connection failed during setup.")
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Wavelink node: {e}", exc_info=True)
             exit("Wavelink connection failed during setup.")
