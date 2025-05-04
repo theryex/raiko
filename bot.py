@@ -58,6 +58,16 @@ class MusicBot(commands.Bot):
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
         # Node Pool manages nodes; no need to store individual nodes here generally
 
+        self.wavelink_ready_event = asyncio.Event() # Signal for Wavelink node readiness
+
+    # --- ADD THIS LISTENER ---
+    @commands.Cog.listener()
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
+        """Event fired when a node establishes a connection."""
+        node = payload.node
+        logger.info(f"Wavelink Node '{node.identifier}' is ready! Session ID: {payload.session_id}")
+        self.wavelink_ready_event.set() # Signal that the node is ready
+
     async def load_extensions(self):
         """Loads cogs from the 'cogs' directory."""
         logger.info("Loading extensions...")
@@ -91,18 +101,18 @@ class MusicBot(commands.Bot):
         logger.info(f"Finished loading extensions. {cogs_loaded} loaded.")
 
     async def setup_hook(self):
-
-        # Simplify the connection process by removing readiness checks and event listeners
-        logger.info("Initializing Wavelink node")
+        
+        # --- Connect to Lavalink ---
+        logger.info("Initializing Wavelink node connection...")
         try:
             lavalink_host = os.getenv("LAVALINK_HOST", "127.0.0.1")
             lavalink_port = int(os.getenv("LAVALINK_PORT", "2333"))
             lavalink_password = os.getenv("LAVALINK_PASSWORD", "youshallnotpass")
 
             node_uri = f"http://{lavalink_host}:{lavalink_port}"
-            logger.debug(f"Connecting to Lavalink at {node_uri}")
+            logger.debug(f"Attempting to connect to Lavalink at {node_uri}")
 
-            # Create and connect the node
+            # Initiate the connection
             await wavelink.Pool.connect(
                 nodes=[
                     wavelink.Node(
@@ -112,15 +122,39 @@ class MusicBot(commands.Bot):
                 ],
                 client=self
             )
-            logger.info("Wavelink node connection initiated.")
+            logger.info("Wavelink connection process initiated.")
 
         except Exception as e:
-            logger.critical(f"Failed to connect to Lavalink: {e}", exc_info=True)
-            exit("Lavalink connection failed.")
+            logger.critical(f"Failed to initiate Wavelink connection: {e}", exc_info=True)
+            exit("Lavalink connection failed during initiation.")
 
-        # --- Load Extensions AFTER Wavelink setup attempt ---
-        # Extensions should ideally wait for on_wavelink_node_ready if they need immediate node access
-        logger.debug("Loading extensions after Wavelink setup...")
+        # --- Wait for Node to be Ready ---
+        logger.info("Waiting for Wavelink node to become ready...")
+        try:
+            # Wait for the on_wavelink_node_ready event to fire, with a timeout
+            timeout = int(os.getenv("WAVELINK_TIMEOUT", 30))  # Default timeout is 30 seconds
+            max_retries = 3
+            retry_delay = 10  # seconds
+            
+            for attempt in range(max_retries):
+                try:
+                    await asyncio.wait_for(self.wavelink_ready_event.wait(), timeout=timeout)
+                    logger.info("Wavelink node is ready!")
+                    break
+                except asyncio.TimeoutError:
+                    logger.warning(f"Attempt {attempt + 1} of {max_retries} timed out. Retrying in {retry_delay} seconds...")
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(retry_delay)
+                    else:
+                        logger.critical("Exceeded maximum retries waiting for Wavelink node to become ready.")
+                        raise RuntimeError("Lavalink node connection failed after multiple retries.")
+            
+        except asyncio.TimeoutError:
+            logger.critical("Timed out waiting for Wavelink node to become ready. Check Lavalink connection & logs.")
+            raise RuntimeError("Lavalink node connection timed out.")
+
+        # --- Load Extensions AFTER Wavelink is Ready ---
+        logger.debug("Wavelink node ready, loading extensions...")
         await self.load_extensions()
 
         # --- Sync Slash Commands AFTER extensions are loaded ---
@@ -144,9 +178,15 @@ class MusicBot(commands.Bot):
 # --- Main Execution ---
 async def main():
     bot = MusicBot()
-    async with bot: # Use async context manager for cleaner shutdown
+    try:
         logger.info("Starting bot...")
         await bot.start(TOKEN)
+    except RuntimeError as e:  # Handle custom exceptions for graceful shutdown
+        logger.critical(f"RuntimeError: {e}")
+    except SystemExit as e:  # Catch the explicit exit() call
+        logger.info(f"Bot process terminated: {e}")
+    except Exception as e:
+        logger.critical(f"Unexpected error during bot execution: {e}", exc_info=True)
 
 if __name__ == "__main__":
     try:
