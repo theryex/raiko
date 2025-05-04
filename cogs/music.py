@@ -193,7 +193,7 @@ class Music(commands.Cog):
             return False
 
         node = wavelink.Pool.get_node()
-        if not node or not nodestatus.CONNECTED:
+        if not node or node.status != wavelink.NodeStatus.CONNECTED:
             await interaction.response.send_message("Music service is not available.", ephemeral=True)
             return False
         return True
