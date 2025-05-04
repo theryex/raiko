@@ -167,6 +167,21 @@ class MusicBot(commands.Bot):
         logger.info("------")
         await self.change_presence(activity=discord.Game(name="Music! /play"))
 
+        # Add debug log to confirm node readiness
+        @self.event
+        async def on_wavelink_node_ready(node):
+            logger.info(f"Wavelink node '{node.identifier}' is ready and connected.")
+
+        # Add debug log to confirm node disconnection
+        @self.event
+        async def on_wavelink_node_disconnect(node):
+            logger.warning(f"Wavelink node '{node.identifier}' has disconnected.")
+
+        # Add debug log to confirm node connection failure
+        @self.event
+        async def on_wavelink_node_connection_failed(node, error):
+            logger.error(f"Wavelink node '{node.identifier}' connection failed: {error}")
+
 # --- Main Execution ---
 async def main():
     bot = MusicBot()
