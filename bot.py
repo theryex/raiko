@@ -140,6 +140,9 @@ class MusicBot(commands.Bot):
             # Added logging to debug Lavalink node creation
             logger.debug(f"Lavalink node creation parameters: host={lavalink_host}, port={lavalink_port}, password={lavalink_password}")
 
+            # Added logging to verify self.user.id and handle Lavalink initialization failure
+            logger.debug(f"Attempting to create node with user_id: {self.user.id}")
+
             self.lavalink_node = lava.create_node(
                 host=lavalink_host,
                 port=lavalink_port,
@@ -147,9 +150,11 @@ class MusicBot(commands.Bot):
                 user_id=self.user.id,  # Use self.user.id
             )
 
-            if not self.lavalink_node:
-                logger.critical("Lavalink node creation returned None. Please verify the Lavalink server is running and accessible.")
-                return
+            if self.lavalink_node is None:
+                logger.critical("lava.create_node returned None! Exiting application.")
+                exit("Lavalink connection failed during setup.")
+            else:
+                logger.info(f"lava.create_node returned a node object: {self.lavalink_node.identifier}")
 
             # Set the event loop using self.loop
             self.lavalink_node.set_event_loop(self.loop)
@@ -164,10 +169,11 @@ class MusicBot(commands.Bot):
                 logger.info(f"Successfully connected to Lavalink node at {lavalink_host}:{lavalink_port}")
             except Exception as e:
                 logger.critical(f"Failed to connect Lavalink node: {e}", exc_info=True)
+                exit("Lavalink connection failed during setup.")
 
         except Exception as e:
             logger.critical(f"Failed to initialize or connect Lavalink node: {e}", exc_info=True)
-            # Decide how to proceed without Lavalink
+            exit("Lavalink connection failed during setup.")
 
         # --- Load Extensions AFTER Lavalink is set up ---
         await self.load_extensions() # Call the method
