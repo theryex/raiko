@@ -5,7 +5,8 @@ lavalink/plugins
 node_modules/
 # Ignore log files
 *.log
-
+cogs/system.py
+cogs/commands.py
 # Ignore .env files
 .env
 <<<<<<< HEAD

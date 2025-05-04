@@ -1,5 +1,3 @@
-# --- START OF FILE start_lavalink.py ---
-
 import os
 import sys
 import subprocess
@@ -75,7 +73,7 @@ def check_plugin_config(config_file_path):
         if spotify_plugin_present:
             lavasrc_block_exists = re.search(r"^\s*lavasrc:", content, re.MULTILINE | re.IGNORECASE)
             if lavasrc_block_exists and ("${SPOTIFY_CLIENT_ID}" not in content or "${SPOTIFY_CLIENT_SECRET}" not in content):
-                print("Note: Consider using environment variables for Spotify configuration.")
+                print("Note: It should be able to use spotify.")
 
         return config_ok
     except Exception:
