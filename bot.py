@@ -144,6 +144,21 @@ class MusicBot(commands.Bot):
             logger.critical(f"Failed during Wavelink NodePool.connect setup: {e}", exc_info=True)
             exit("Wavelink connection failed during setup.")
 
+        # Add debug log to check node status after connection
+        try:
+            node = wavelink.NodePool.get_node()
+            logger.info(f"Node '{node.identifier}' status: {node.status}")
+        except Exception as e:
+            logger.error(f"Failed to retrieve node status: {e}")
+
+        # Add timeout handling for node readiness
+        try:
+            await asyncio.wait_for(self.wait_until_ready(), timeout=30)
+            logger.info("Bot is ready and node connection is complete.")
+        except asyncio.TimeoutError:
+            logger.critical("Timeout waiting for Lavalink node to be ready. Exiting...")
+            exit("Timeout waiting for Lavalink node to be ready.")
+
         # --- Load Extensions AFTER Wavelink setup attempt ---
         # Extensions should ideally wait for on_wavelink_node_ready if they need immediate node access
         logger.debug("Loading extensions after Wavelink setup...")
