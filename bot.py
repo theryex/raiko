@@ -118,13 +118,16 @@ class MusicBot(commands.Bot):
             )
 
             # 2. Connect using NodePool.connect, passing the client and list of nodes
-            # This is the correct method according to the API reference provided.
-            await wavelink.NodePool.connect(nodes=[node], client=self)
-            # Connection status will be emitted via on_wavelink_node_ready event
+            # Add a timeout to prevent indefinite hanging
+            connect_task = asyncio.create_task(wavelink.NodePool.connect(nodes=[node], client=self))
+            await asyncio.wait_for(connect_task, timeout=30)  # Timeout after 30 seconds
 
             logger.info(f"Wavelink NodePool.connect called for node '{node_id}'. Waiting for node ready event...")
 
         # Catch specific Wavelink exceptions if possible, otherwise general Exception
+        except asyncio.TimeoutError:
+            logger.critical("Wavelink connection timed out. Please check your Lavalink server.")
+            exit("Wavelink connection timed out during setup.")
         except wavelink.InvalidClientException as e:
              logger.critical(f"Wavelink connection failed: Invalid client provided. Error: {e}", exc_info=True)
              exit("Wavelink connection failed during setup (Invalid Client).")
