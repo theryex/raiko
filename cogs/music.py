@@ -704,8 +704,8 @@ async def setup(bot: commands.Bot):
     # Add a slightly longer delay to ensure node connection attempt has occurred
     await asyncio.sleep(2)
     node = wavelink.Pool.get_node()
-    if not node or not node.is_connected:
-        logger.error("Music cog setup: Wavelink node is not available or not connected after delay. Cannot load Music cog.")
+    if not node:
+        logger.error("Music cog setup: Wavelink node is not available after delay. Cannot load Music cog.")
         raise commands.ExtensionFailed("Music", NameError("Wavelink node not available during Music cog setup"))
 
     await bot.add_cog(Music(bot))
