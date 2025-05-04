@@ -137,6 +137,9 @@ class MusicBot(commands.Bot):
                 logger.critical("Failed to initialize Lavalink instance. Ensure lavaplay is correctly installed.")
                 return
 
+            # Added logging to debug Lavalink node creation
+            logger.debug(f"Lavalink node creation parameters: host={lavalink_host}, port={lavalink_port}, password={lavalink_password}")
+
             self.lavalink_node = lava.create_node(
                 host=lavalink_host,
                 port=lavalink_port,
@@ -145,7 +148,7 @@ class MusicBot(commands.Bot):
             )
 
             if not self.lavalink_node:
-                logger.critical("Failed to create Lavalink node. Check the configuration and lavaplay version.")
+                logger.critical("Lavalink node creation returned None. Please verify the Lavalink server is running and accessible.")
                 return
 
             # Set the event loop using self.loop
