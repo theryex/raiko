@@ -137,7 +137,7 @@ class MusicBot(commands.Bot):
 
         # Add debug log to check node status after connection
         try:
-            node = wavelink.NPool.get_node()
+            node = wavelink.Pool.get_node()
             logger.info(f"Node '{node.identifier}' status: {node.status}")
         except Exception as e:
             logger.error(f"Failed to retrieve node status: {e}")
