@@ -4,6 +4,8 @@ server:
   address: 127.0.0.1
   connectionTimeout: 30000  # 30 seconds connection timeout
   requestTimeout: 10000    # 10 seconds request timeout
+  http2:
+    enabled: false
 
 # Spring Boot settings (usually fine as is)
 spring:
@@ -24,6 +26,17 @@ lavalink:
       vimeo: true
       http: true
       local: false # Keep local disabled for security unless specifically needed
+    filters:
+      volume: true
+      equalizer: true
+      karaoke: true
+      timescale: true
+      tremolo: true
+      vibrato: true
+      distortion: true
+      rotation: true
+      channelMix: true
+      lowPass: true
     # Other optional Lavalink settings (defaults are often fine)
     bufferDurationMs: 400
     # youtubePlaylistLoadLimit: 6 # This applies to the *built-in* source, less relevant when disabled
@@ -57,8 +70,8 @@ plugins:
 
     # Spotify specific settings
     spotify:
-      clientId: ""      # Required: Add your Spotify Client ID here
-      clientSecret: ""  # Required: Add your Spotify Client Secret here
+      clientId: ${SPOTIFY_CLIENT_ID}      # Required: Add your Spotify Client ID here
+      clientSecret: ${SPOTIFY_CLIENT_SECRET}  # Required: Add your Spotify Client Secret here
       countryCode: "US" # Optional: Use your country code to potentially bypass region locks
       playlistLoadLimit: 100 # Max tracks to load from a playlist
       albumLoadLimit: 100    # Max tracks to load from an album
@@ -89,8 +102,7 @@ plugins:
       # cacheExpiry: 3600
 
 # Logging configuration (Optional - Fine-tune Lavalink's logging)
-# logging:
-#   level:
-#     lavalink: INFO # Default is INFO
-#     dev.lavalink.youtube: DEBUG # Set specific plugin log levels
-#     dev.kaan.lavasrc: DEBUG
+logging:
+  level:
+    root: INFO
+    lavalink: INFO
