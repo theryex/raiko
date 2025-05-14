@@ -44,7 +44,8 @@ class MusicBot(commands.Bot):
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         self.wavelink_ready_event.set()
-          async def load_extensions(self):
+
+    async def load_extensions(self):
         extensions = [
             "cogs.music_slash",
             "cogs.system"
