@@ -38,10 +38,10 @@ class MusicBot(commands.Bot):
         intents.guilds = True
         intents.guild_messages = True
 
-        bot = commands.Bot(command_prefix="!", intents=intents)
+        bot = commands.Bot(command_prefix="!", intents=intents)        super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
+        self.wavelink_ready_event = asyncio.Event()
 
-        super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
-        self.wavelink_ready_event = asyncio.Event()    @commands.Cog.listener()
+    @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         self.wavelink_ready_event.set()
         
@@ -70,11 +70,12 @@ class MusicBot(commands.Bot):
                 await asyncio.wait_for(self.wavelink_ready_event.wait(), timeout=30)
             except asyncio.TimeoutError:
                 raise RuntimeError("Failed to connect to Lavalink server. Please ensure it's running.")            # Load extensions and sync commands
-            await self.load_extensions()
-            await self.tree.sync()
+            await self.load_extensions()            await self.tree.sync()
 
         except Exception as e:
-            exit(f"Setup failed: {str(e)}")    async def on_ready(self):
+            exit(f"Setup failed: {str(e)}")
+
+    async def on_ready(self):
         print(f"Logged in as {self.user}")
         await self.change_presence(activity=discord.Activity(
             type=discord.ActivityType.watching, name="paint dry."))
