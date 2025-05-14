@@ -1220,7 +1220,8 @@ class Music(commands.Cog):
         self.voice_states = {}
 
     # Get the voice state from dictionary, create if it does not exist
-    def get_voice_state(self, ctx):        if isinstance(ctx, discord.Interaction):
+    def get_voice_state(self, ctx):        
+        if isinstance(ctx, discord.Interaction):
             guild_id = ctx.guild_id
         else:
             guild_id = ctx.guild.id
