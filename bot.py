@@ -41,11 +41,11 @@ class MusicBot(commands.Bot):
         bot = commands.Bot(command_prefix="!", intents=intents)
 
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
-        self.wavelink_ready_event = asyncio.Event()
-
-    @commands.Cog.listener()
+        self.wavelink_ready_event = asyncio.Event()    @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
-        self.wavelink_ready_event.set()    async def load_extensions(self):
+        self.wavelink_ready_event.set()
+        
+    async def load_extensions(self):
         try:
             await self.load_extension("cogs.music_slash")
             print(f"Loaded {len(self.commands)} commands.")
