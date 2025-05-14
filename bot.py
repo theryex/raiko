@@ -44,13 +44,18 @@ class MusicBot(commands.Bot):
     @commands.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
         self.wavelink_ready_event.set()
-        
-    async def load_extensions(self):
-        try:
-            await self.load_extension("cogs.music_slash")
-            print(f"Loaded {len(self.commands)} commands.")
-        except Exception as e:
-            print(f"Failed to load music extension: {str(e)}")
+          async def load_extensions(self):
+        extensions = [
+            "cogs.music_slash",
+            "cogs.system"
+        ]
+        for extension in extensions:
+            try:
+                await self.load_extension(extension)
+                print(f"Loaded {extension}")
+            except Exception as e:
+                print(f"Failed to load {extension}: {str(e)}")
+        print(f"Loaded {len(self.commands)} commands total.")
 
     async def setup_hook(self):
         try:
