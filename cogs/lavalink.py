@@ -92,7 +92,7 @@ class Music(commands.Cog):
             task.cancel()
         self.inactivity_timers.clear()
 
-    @app_commands.command(name="player", description="Plays music from YouTube, SoundCloud, or Spotify")
+    @app_commands.command(name="stream", description="Plays music from Streaming, SoundCloud, or Spotify")
     @app_commands.describe(query='URL or search term')
     async def play(self, interaction: discord.Interaction, *, query: str):
         player = await self.ensure_voice_client(interaction)
