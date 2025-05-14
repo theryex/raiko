@@ -5,13 +5,11 @@ import math
 import random
 import os
 import time
-
 import discord
 from discord import app_commands
+from discord.ext import commands
 import yt_dlp as youtube_dl
 from async_timeout import timeout
-from discord.ext import commands
-
 import subprocess
 import shutil
 import re
@@ -1215,7 +1213,7 @@ class PlayerControlView(discord.ui.View):
 
 
 class Music(commands.Cog):
-    def __init__(self, bot: discord.Bot):
+    def __init__(self, bot):
         self.bot = bot
         self.voice_states = {}
 
@@ -1236,6 +1234,10 @@ class Music(commands.Cog):
         if state.audio_player and state.audio_player.done():
             state.recreate_bg_task(ctx, self)
         return state
+
+    async def cog_load(self):
+        # Any setup that needs to happen when the cog is loaded
+        pass
 
     # Stop all async tasks for each voice state
     def cog_unload(self):
@@ -1395,23 +1397,23 @@ class Music(commands.Cog):
             page = int(page)
         except:
             page = 1
-        if len(ctx.voice_state.songs) == 0 and ctx.voice_state.current is None:
-            return await respond(ctx, loc["messages"]["empty_queue"],
+        if len(interaction.voice_state.songs) == 0 and interaction.voice_state.current is None:
+            return await respond(interaction, loc["messages"]["empty_queue"],
                                  color=0xff0000)
 
         # Invoking queue while the bot is retrieving another song will cause error, wait for 1 second
-        while ctx.voice_state.current is None or isinstance(
-                ctx.voice_state.current, dict):
+        while interaction.voice_state.current is None or isinstance(
+                interaction.voice_state.current, dict):
             await asyncio.sleep(1)
-        return await respond(ctx, embed=queue_embed(
-            ctx.voice_state.songs,
+        return await respond(interaction, embed=queue_embed(
+            interaction.voice_state.songs,
             page,
             loc["queue_embed"]["title"],
             loc["queue_embed"]["body"].format(
-                ctx.voice_state.current.source.title,
-                ctx.voice_state.current.source.url, parse_duration(
-                    ctx.voice_state.current.source.duration_int - int(
-                        time.time() - ctx.voice_state.current.starttime - ctx.voice_state.current.pause_duration))),
+                interaction.voice_state.current.source.title,
+                interaction.voice_state.current.source.url, parse_duration(
+                    interaction.voice_state.current.source.duration_int - int(
+                        time.time() - interaction.voice_state.current.starttime - interaction.voice_state.current.pause_duration))),
             "url"
         ))
 
