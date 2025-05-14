@@ -70,7 +70,8 @@ class MusicBot(commands.Bot):
                 await asyncio.wait_for(self.wavelink_ready_event.wait(), timeout=30)
             except asyncio.TimeoutError:
                 raise RuntimeError("Failed to connect to Lavalink server. Please ensure it's running.")            # Load extensions and sync commands
-            await self.load_extensions()            await self.tree.sync()
+            await self.load_extensions()            
+            await self.tree.sync()
 
         except Exception as e:
             exit(f"Setup failed: {str(e)}")
