@@ -33,12 +33,11 @@ CACHE_DIR.mkdir(exist_ok=True)
 class MusicBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.default()
-        intents.voice_states = True
-        intents.message_content = True
+        intents.voice_states = True        intents.message_content = True
         intents.guilds = True
         intents.guild_messages = True
 
-        bot = commands.Bot(command_prefix="!", intents=intents)        super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
+        super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
         self.wavelink_ready_event = asyncio.Event()
 
     @commands.Cog.listener()
