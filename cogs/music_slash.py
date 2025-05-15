@@ -606,7 +606,7 @@ class SongQueue(asyncio.Queue):
 
 
 class VoiceState:
-    def __init__(self, bot: discord.Bot, ctx, cog):
+    def __init__(self, bot: commands.Bot, ctx, cog):
         self.bot = bot
         self._ctx = ctx
 
