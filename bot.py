@@ -47,7 +47,7 @@ class MusicBot(commands.Bot):
 
     async def load_extensions(self):
         extensions = [
-            "cogs.music_slash",
+            "cogs.lavalink",
             "cogs.system"
         ]
         for extension in extensions:
