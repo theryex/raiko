@@ -85,7 +85,7 @@ class MusicBot(commands.Bot):
     async def on_ready(self):
         print(f"Logged in as {self.user}")
         await self.change_presence(activity=discord.Activity(
-            type=discord.ActivityType.watching, name="paint dry."))
+            type=discord.ActivityType.Streaming, name="All your data to the NSA"))
 
 async def main():
     bot = MusicBot()

@@ -1,0 +1,105 @@
+2025-05-05 02:55:36,082 - __main__ [INFO] - Starting bot...
+2025-05-05 02:55:36,082 - discord.client [INFO] - logging in using static token
+2025-05-05 02:55:37,129 - __main__ [INFO] - Initializing Wavelink node connection...
+2025-05-05 02:55:39,156 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:55:39,156 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "0.18421348270168592" seconds.
+2025-05-05 02:55:41,410 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:55:41,410 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "4.736852496880435" seconds.
+2025-05-05 02:55:48,204 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:55:48,204 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "8.91335073719577" seconds.
+2025-05-05 02:55:59,180 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:55:59,180 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "17.82670147439154" seconds.
+2025-05-05 02:56:19,068 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:56:19,068 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "19.983459737986525" seconds.
+2025-05-05 02:56:41,109 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:56:41,109 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "0.3128004365328545" seconds.
+2025-05-05 02:56:43,483 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:56:43,483 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "4.31174131325088" seconds.
+2025-05-05 02:56:49,855 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:56:49,855 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "6.597716468899062" seconds.
+2025-05-05 02:56:58,492 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:56:58,492 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "20.378778635295145" seconds.
+2025-05-05 02:57:20,906 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:57:20,906 - wavelink.websocket [INFO] - Node(identifier=JdHXiOcveraDAiKJ, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "28.755578540111138" seconds.
+2025-05-05 02:57:25,203 - __main__ [INFO] - Starting bot...
+2025-05-05 02:57:25,203 - discord.client [INFO] - logging in using static token
+2025-05-05 02:57:25,942 - __main__ [INFO] - Initializing Wavelink node connection...
+2025-05-05 02:57:27,992 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:57:27,992 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "0.8549114265474949" seconds.
+2025-05-05 02:57:28,296 - __main__ [INFO] - Bot shutdown requested via KeyboardInterrupt.
+2025-05-05 02:57:28,296 - root [INFO] - Bot process ended.
+2025-05-05 02:57:28,305 - asyncio [ERROR] - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000018A1C664C90>
+2025-05-05 02:57:28,305 - asyncio [ERROR] - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x0000018A1C667750>
+2025-05-05 02:57:30,908 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:57:30,908 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "1.7098228530949897" seconds.
+2025-05-05 02:57:34,683 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:57:34,683 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "14.203726104867947" seconds.
+2025-05-05 02:57:50,954 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:57:50,954 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "18.525613057811867" seconds.
+2025-05-05 02:58:11,522 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:58:11,522 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "30.0" seconds.
+2025-05-05 02:58:43,582 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:58:43,582 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "0.44509127480745136" seconds.
+2025-05-05 02:58:46,062 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:58:46,062 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "5.975677093572564" seconds.
+2025-05-05 02:58:54,096 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:58:54,096 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "17.052418908159925" seconds.
+2025-05-05 02:59:13,199 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:59:13,199 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "30.0" seconds.
+2025-05-05 02:59:45,251 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:59:45,251 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "0.639454600534048" seconds.
+2025-05-05 02:59:47,937 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:59:47,937 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "5.825545975258538" seconds.
+2025-05-05 02:59:55,814 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 02:59:55,814 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "11.651091950517076" seconds.
+2025-05-05 03:00:09,514 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:00:09,514 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "23.30218390103415" seconds.
+2025-05-05 03:00:34,880 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:00:34,880 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "30.0" seconds.
+2025-05-05 03:01:06,933 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:01:06,933 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "1.4381663338521233" seconds.
+2025-05-05 03:01:10,410 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:01:10,410 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "2.4092941802315053" seconds.
+2025-05-05 03:01:14,876 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:01:14,876 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "13.398760467755375" seconds.
+2025-05-05 03:01:30,323 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:01:30,324 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "26.79752093551075" seconds.
+2025-05-05 03:01:59,168 - wavelink.websocket [WARNING] - An unexpected error occurred while connecting Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) to Lavalink: "Cannot connect to host 127.0.0.1:2333 ssl:default [The remote computer refused the network connection]"
+If this error persists or wavelink is unable to reconnect, please see: https://github.com/PythonistaGuild/Wavelink/issues
+2025-05-05 03:01:59,168 - wavelink.websocket [INFO] - Node(identifier=ZjcXTZpGbqhPre8M, uri=http://127.0.0.1:2333, status=NodeStatus.CONNECTING, players=0) retrying websocket connection in "28.518927120028597" seconds.
+2025-05-05 03:02:00,344 - __main__ [INFO] - Bot shutdown requested via KeyboardInterrupt.
+2025-05-05 03:02:00,344 - root [INFO] - Bot process ended.
+2025-05-05 03:02:00,354 - asyncio [ERROR] - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x000001D616F94B90>
+2025-05-05 03:02:00,354 - asyncio [ERROR] - Unclosed client session
+client_session: <aiohttp.client.ClientSession object at 0x000001D616F94C10>
