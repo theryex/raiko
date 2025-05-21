@@ -5,119 +5,126 @@ from dotenv import load_dotenv
 import asyncio
 import logging
 from pathlib import Path
-import wavelink
-from typing import Optional
 
 # Configuration
 load_dotenv()
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] - %(message)s',
+    level=logging.DEBUG,  # More verbose logging for debugging
+    format='%(asctime)s [%(levelname)s] [%(name)s] - %(message)s',
     handlers=[
-        logging.FileHandler('bot.log', encoding='utf-8'),
+        logging.FileHandler('bot_debug.log', encoding='utf-8', mode='w'), # Use a separate debug log
         logging.StreamHandler()
     ]
 )
+logger = logging.getLogger(__name__)
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 if not TOKEN:
+    logger.critical("CRITICAL: DISCORD_TOKEN is required in .env file. Exiting.")
     exit("Error: DISCORD_TOKEN is required in .env file")
 
 DEFAULT_PREFIX = os.getenv('DEFAULT_PREFIX', '!')
-DEFAULT_VOLUME = int(os.getenv('DEFAULT_VOLUME', 100))
-MAX_PLAYLIST_SIZE = int(os.getenv('MAX_PLAYLIST_SIZE', 100))
-MAX_QUEUE_SIZE = int(os.getenv('MAX_QUEUE_SIZE', 1000))
-CACHE_DIR = Path(os.getenv('CACHE_DIR', './cache'))
-CACHE_DIR.mkdir(exist_ok=True)
 
-class MusicBot(commands.Bot):
+class MinimalBot(commands.Bot):
     def __init__(self):
+        logger.info("Initializing MinimalBot...")
         intents = discord.Intents.default()
-        intents.voice_states = True
-        intents.message_content = True
+        # Remove voice_states if not strictly needed by cogs.system
+        # intents.voice_states = True 
+        intents.message_content = True # If cogs.system uses it
         intents.guilds = True
         intents.guild_messages = True
 
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
-        self.wavelink_ready_event = asyncio.Event()
+        logger.info("MinimalBot super().__init__() called.")
 
-    @commands.Cog.listener()
-    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload):
-        self.wavelink_ready_event.set()
+    async def load_extensions_debug(self):
+        logger.info("Attempting to load 'cogs.system' extension...")
+        try:
+            await self.load_extension("cogs.system")
+            logger.info("Successfully loaded extension: cogs.system")
+        except commands.ExtensionNotFound:
+            logger.error("ExtensionNotFound: cogs.system could not be found.", exc_info=True)
+        except commands.ExtensionAlreadyLoaded:
+            logger.warning("ExtensionAlreadyLoaded: cogs.system is already loaded.", exc_info=True)
+        except commands.NoEntryPointError:
+            logger.error("NoEntryPointError: cogs.system does not have a 'setup' function.", exc_info=True)
+        except commands.ExtensionFailed as e:
+            logger.error(f"ExtensionFailed: cogs.system failed to load. Error: {e.original}", exc_info=True)
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading cogs.system.", exc_info=True)
+        
+        logger.info(f"Current cogs: {self.cogs}")
+        logger.info(f"Current commands: {[cmd.name for cmd in self.commands]}")
 
-    async def load_extensions(self):
-        extensions = [
-            "cogs.lavalink",
-            "cogs.system"
-        ]
-        for extension in extensions:
-            try:
-                await self.load_extension(extension)
-                logging.info(f"Successfully loaded extension: {extension}")
-            except Exception as e:
-                logging.error(f"Failed to load extension {extension}.", exc_info=True)
-        logging.info(f"Finished loading extensions. Total commands loaded: {len(self.commands)}")
 
     async def setup_hook(self):
-        # Lavalink connection setup
-        try:
-            logging.info("Attempting to connect to Lavalink server...")
-            await wavelink.Pool.connect(
-                nodes=[
-                    wavelink.Node(
-                        uri=f"http://{os.getenv('LAVALINK_HOST', '127.0.0.1')}:{int(os.getenv('LAVALINK_PORT', '2333'))}",
-                        password=os.getenv('LAVALINK_PASSWORD', 'youshallnotpass')
-                    )
-                ],
-                client=self
-            )
-            logging.info("Waiting for Lavalink node to be ready...")
-            try:
-                await asyncio.wait_for(self.wavelink_ready_event.wait(), timeout=30)
-                logging.info("Lavalink node is ready.")
-            except asyncio.TimeoutError:
-                logging.error("Lavalink node connection timed out after 30 seconds. This is a fatal error.")
-                # This specific error should still cause an exit, as it's critical for music functionality.
-                exit("Error: Failed to connect to Lavalink server (timeout). Please ensure it's running and accessible.")
-        except Exception as e:
-            logging.error(f"Failed to connect to Lavalink or Lavalink node not ready. Error: {e}", exc_info=True)
-            # This is a critical failure.
-            exit(f"Setup failed due to Lavalink connection error: {str(e)}")
+        logger.info("MinimalBot setup_hook started.")
+        
+        logger.info("Loading extensions (debug mode)...")
+        await self.load_extensions_debug()
+        logger.info("Extension loading process completed.")
 
-        # Load extensions
-        logging.info("Starting to load extensions...")
-        await self.load_extensions()
-        logging.info("Extension loading process completed.")
-
-        # Sync commands
-        logging.info("Attempting to sync application commands...")
+        if not self.cogs:
+            logger.warning("No cogs were loaded. Application command syncing will likely fail or be empty.")
+        
+        logger.info("Attempting to sync application commands...")
         try:
-            await self.tree.sync()
-            logging.info("Application commands synced successfully.")
+            # Sync globally if no guild IDs are specified
+            # synced_commands = await self.tree.sync()
+            # logger.info(f"Application commands synced globally. Synced: {len(synced_commands)} commands.")
+            
+            # Example: Sync to a specific guild for faster testing (replace with your guild ID)
+            # test_guild_id = os.getenv('TEST_GUILD_ID')
+            # if test_guild_id:
+            #     guild_obj = discord.Object(id=int(test_guild_id))
+            #     logger.info(f"Attempting to sync commands to guild: {test_guild_id}")
+            #     synced_commands = await self.tree.sync(guild=guild_obj)
+            #     logger.info(f"Application commands synced to guild {test_guild_id}. Synced: {len(synced_commands)} commands: {[c.name for c in synced_commands]}")
+            # else:
+            #     logger.info("No TEST_GUILD_ID found in .env, syncing globally.")
+            synced_commands = await self.tree.sync()
+            logger.info(f"Application commands synced globally. Synced: {len(synced_commands)} commands. Details: {[c.name for c in synced_commands]}")
+
+        except discord.errors.Forbidden:
+            logger.error("Forbidden: Failed to sync application commands. Check bot permissions (application.commands scope).", exc_info=True)
+        except discord.errors.HTTPException as e:
+            logger.error(f"HTTPException: Failed to sync application commands. {e.status} - {e.text}", exc_info=True)
         except Exception as e:
-            logging.error("Failed to sync application commands.", exc_info=True)
-            # Bot can continue running if command sync fails, but commands might not be available.
-            # No exit here, just log the error.
+            logger.error(f"An unexpected error occurred during command syncing.", exc_info=True)
+        
+        logger.info("MinimalBot setup_hook finished.")
 
     async def on_ready(self):
-        logging.info(f"Logged in as {self.user} (ID: {self.user.id})")
-        await self.change_presence(activity=discord.Activity(
-            type=discord.ActivityType.streaming, name="All your data to the NSA"))
+        logger.info(f"MinimalBot logged in as {self.user} (ID: {self.user.id})")
+        logger.info(f"Bot is in {len(self.guilds)} guilds.")
+        # No presence change for simplicity
+
+    async def on_command_error(self, ctx, error):
+        logger.error(f"Error in command {ctx.command}: {error}", exc_info=True)
+        await ctx.send(f"An error occurred: {error}")
 
 async def main():
-    bot = MusicBot()
+    logger.info("Starting MinimalBot...")
+    bot = MinimalBot()
     try:
         await bot.start(TOKEN)
+    except discord.LoginFailure:
+        logger.critical("LoginFailure: Failed to log in. Check your DISCORD_TOKEN.", exc_info=True)
+    except discord.HTTPException as e:
+        logger.critical(f"HTTPException during bot startup: {e.status} - {e.text}", exc_info=True)
     except Exception as e:
-        exit(f"Bot error: {str(e)}")
+        logger.critical(f"An unexpected error occurred during bot startup.", exc_info=True)
+    finally:
+        logger.info("MinimalBot main() finished or encountered an error.")
 
 if __name__ == "__main__":
+    logger.info("MinimalBot script execution started.")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("Bot shutdown requested.")
+        logger.info("MinimalBot shutdown requested via KeyboardInterrupt.")
     except Exception as e:
-        print(f"Fatal error: {str(e)}")
-
-
-
+        logger.critical(f"Fatal error in asyncio.run(main()):", exc_info=True)
+    finally:
+        logger.info("MinimalBot script execution finished.")
