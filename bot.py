@@ -9,10 +9,10 @@ from pathlib import Path
 # Configuration
 load_dotenv()
 logging.basicConfig(
-    level=logging.DEBUG,  # More verbose logging for debugging
+    level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] [%(name)s] - %(message)s',
     handlers=[
-        logging.FileHandler('bot_debug.log', encoding='utf-8', mode='w'), # Use a separate debug log
+        logging.FileHandler('bot_debug_on_ready.log', encoding='utf-8', mode='w'), # New log file
         logging.StreamHandler()
     ]
 )
@@ -25,28 +25,32 @@ if not TOKEN:
 
 DEFAULT_PREFIX = os.getenv('DEFAULT_PREFIX', '!')
 
-class MinimalBot(commands.Bot):
+class DebugBotOnReady(commands.Bot):
     def __init__(self):
-        logger.info("Initializing MinimalBot...")
+        logger.info("Initializing DebugBotOnReady...")
         intents = discord.Intents.default()
-        # Remove voice_states if not strictly needed by cogs.system
-        # intents.voice_states = True 
-        intents.message_content = True # If cogs.system uses it
+        intents.message_content = True # If cogs.system uses it for prefix commands
         intents.guilds = True
-        intents.guild_messages = True
+        # intents.guild_messages = True # Covered by default intents if message_content is true
 
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
-        logger.info("MinimalBot super().__init__() called.")
+        self.setup_called_once = False # Flag to ensure setup logic in on_ready runs once
+        logger.info("DebugBotOnReady super().__init__() called.")
 
     async def load_extensions_debug(self):
-        logger.info("Attempting to load 'cogs.system' extension...")
+        logger.info("Attempting to load 'cogs.system' extension (called from on_ready)...")
         try:
             await self.load_extension("cogs.system")
             logger.info("Successfully loaded extension: cogs.system")
+        except commands.ExtensionAlreadyLoaded:
+            logger.warning("ExtensionAlreadyLoaded: cogs.system is already loaded. Attempting to reload...")
+            try:
+                await self.reload_extension("cogs.system")
+                logger.info("Successfully reloaded extension: cogs.system")
+            except Exception as e_reload:
+                logger.error(f"Failed to reload cogs.system.", exc_info=True)
         except commands.ExtensionNotFound:
             logger.error("ExtensionNotFound: cogs.system could not be found.", exc_info=True)
-        except commands.ExtensionAlreadyLoaded:
-            logger.warning("ExtensionAlreadyLoaded: cogs.system is already loaded.", exc_info=True)
         except commands.NoEntryPointError:
             logger.error("NoEntryPointError: cogs.system does not have a 'setup' function.", exc_info=True)
         except commands.ExtensionFailed as e:
@@ -54,59 +58,66 @@ class MinimalBot(commands.Bot):
         except Exception as e:
             logger.error(f"An unexpected error occurred while loading cogs.system.", exc_info=True)
         
-        logger.info(f"Current cogs: {self.cogs}")
-        logger.info(f"Current commands: {[cmd.name for cmd in self.commands]}")
+        logger.info(f"Current cogs after load_extensions_debug: {self.cogs}")
+        logger.info(f"Current commands after load_extensions_debug: {[cmd.name for cmd in self.commands]}") # This will show prefixed commands
 
-
-    async def setup_hook(self):
-        logger.info("MinimalBot setup_hook started.")
+    async def sync_app_commands_debug(self):
+        logger.info("Attempting to sync application commands (called from on_ready)...")
+        if not self.cogs: # Check if cogs.system loaded, as it should contain app commands
+            logger.warning("No cogs seem to be loaded. Application command syncing might be ineffective.")
         
-        logger.info("Loading extensions (debug mode)...")
-        await self.load_extensions_debug()
-        logger.info("Extension loading process completed.")
-
-        if not self.cogs:
-            logger.warning("No cogs were loaded. Application command syncing will likely fail or be empty.")
-        
-        logger.info("Attempting to sync application commands...")
         try:
-            # Sync globally if no guild IDs are specified
-            # synced_commands = await self.tree.sync()
-            # logger.info(f"Application commands synced globally. Synced: {len(synced_commands)} commands.")
-            
-            # Example: Sync to a specific guild for faster testing (replace with your guild ID)
-            # test_guild_id = os.getenv('TEST_GUILD_ID')
-            # if test_guild_id:
-            #     guild_obj = discord.Object(id=int(test_guild_id))
-            #     logger.info(f"Attempting to sync commands to guild: {test_guild_id}")
-            #     synced_commands = await self.tree.sync(guild=guild_obj)
-            #     logger.info(f"Application commands synced to guild {test_guild_id}. Synced: {len(synced_commands)} commands: {[c.name for c in synced_commands]}")
-            # else:
-            #     logger.info("No TEST_GUILD_ID found in .env, syncing globally.")
             synced_commands = await self.tree.sync()
             logger.info(f"Application commands synced globally. Synced: {len(synced_commands)} commands. Details: {[c.name for c in synced_commands]}")
-
+            for cmd in synced_commands:
+                logger.debug(f"Synced command: {cmd.name}, ID: {cmd.id}, Type: {type(cmd)}")
         except discord.errors.Forbidden:
             logger.error("Forbidden: Failed to sync application commands. Check bot permissions (application.commands scope).", exc_info=True)
+        except discord.app_commands.CommandSyncFailure as e:
+             logger.error(f"CommandSyncFailure: {e.message}, Details: {e.failed_commands}", exc_info=True)
         except discord.errors.HTTPException as e:
             logger.error(f"HTTPException: Failed to sync application commands. {e.status} - {e.text}", exc_info=True)
         except Exception as e:
             logger.error(f"An unexpected error occurred during command syncing.", exc_info=True)
-        
-        logger.info("MinimalBot setup_hook finished.")
+
+    async def setup_hook(self):
+        # setup_hook is called before login.
+        # We are moving the core logic to on_ready for this debug version.
+        logger.info("DebugBotOnReady setup_hook called (minimal, logic moved to on_ready).")
+        # If cogs.system had some setup_hook dependent logic that wasn't command registration,
+        # it might be an issue, but typically commands are the focus.
 
     async def on_ready(self):
-        logger.info(f"MinimalBot logged in as {self.user} (ID: {self.user.id})")
+        logger.info(f"DebugBotOnReady logged in as {self.user} (ID: {self.user.id})")
         logger.info(f"Bot is in {len(self.guilds)} guilds.")
-        # No presence change for simplicity
+        
+        if not self.setup_called_once:
+            logger.info("Running setup logic in on_ready for the first time...")
+            
+            logger.info("Loading extensions (debug mode from on_ready)...")
+            await self.load_extensions_debug()
+            logger.info("Extension loading process (from on_ready) completed.")
+            
+            logger.info("Syncing application commands (debug mode from on_ready)...")
+            await self.sync_app_commands_debug()
+            logger.info("Application command syncing (from on_ready) completed.")
+            
+            self.setup_called_once = True
+            logger.info("Setup logic in on_ready marked as complete.")
+        else:
+            logger.info("Setup logic in on_ready already performed, skipping.")
 
-    async def on_command_error(self, ctx, error):
-        logger.error(f"Error in command {ctx.command}: {error}", exc_info=True)
-        await ctx.send(f"An error occurred: {error}")
+    async def on_command_error(self, ctx, error): # For prefixed commands, if any
+        logger.error(f"Error in prefixed command {ctx.command}: {error}", exc_info=True)
+        if ctx.command: # Check if ctx.command is not None
+            await ctx.send(f"An error occurred with command '{ctx.command.name}': {error}")
+        else:
+            await ctx.send(f"An error occurred: {error}")
+
 
 async def main():
-    logger.info("Starting MinimalBot...")
-    bot = MinimalBot()
+    logger.info("Starting DebugBotOnReady...")
+    bot = DebugBotOnReady()
     try:
         await bot.start(TOKEN)
     except discord.LoginFailure:
@@ -116,15 +127,15 @@ async def main():
     except Exception as e:
         logger.critical(f"An unexpected error occurred during bot startup.", exc_info=True)
     finally:
-        logger.info("MinimalBot main() finished or encountered an error.")
+        logger.info("DebugBotOnReady main() finished or encountered an error.")
 
 if __name__ == "__main__":
-    logger.info("MinimalBot script execution started.")
+    logger.info("DebugBotOnReady script execution started.")
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("MinimalBot shutdown requested via KeyboardInterrupt.")
+        logger.info("DebugBotOnReady shutdown requested via KeyboardInterrupt.")
     except Exception as e:
         logger.critical(f"Fatal error in asyncio.run(main()):", exc_info=True)
     finally:
-        logger.info("MinimalBot script execution finished.")
+        logger.info("DebugBotOnReady script execution finished.")
