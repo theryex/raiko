@@ -53,14 +53,15 @@ class MusicBot(commands.Bot):
         for extension in extensions:
             try:
                 await self.load_extension(extension)
-                print(f"Loaded {extension}")
+                logging.info(f"Successfully loaded extension: {extension}")
             except Exception as e:
-                print(f"Failed to load {extension}: {str(e)}")
-        print(f"Loaded {len(self.commands)} commands total.")
+                logging.error(f"Failed to load extension {extension}.", exc_info=True)
+        logging.info(f"Finished loading extensions. Total commands loaded: {len(self.commands)}")
 
     async def setup_hook(self):
+        # Lavalink connection setup
         try:
-            # Connect to Lavalink
+            logging.info("Attempting to connect to Lavalink server...")
             await wavelink.Pool.connect(
                 nodes=[
                     wavelink.Node(
@@ -70,22 +71,38 @@ class MusicBot(commands.Bot):
                 ],
                 client=self
             )
-
-            # Wait for node to be ready
+            logging.info("Waiting for Lavalink node to be ready...")
             try:
                 await asyncio.wait_for(self.wavelink_ready_event.wait(), timeout=30)
+                logging.info("Lavalink node is ready.")
             except asyncio.TimeoutError:
-                raise RuntimeError("Failed to connect to Lavalink server. Please ensure it's running.")            # Load extensions and sync commands
-            await self.load_extensions()            
-            await self.tree.sync()
-
+                logging.error("Lavalink node connection timed out after 30 seconds. This is a fatal error.")
+                # This specific error should still cause an exit, as it's critical for music functionality.
+                exit("Error: Failed to connect to Lavalink server (timeout). Please ensure it's running and accessible.")
         except Exception as e:
-            exit(f"Setup failed: {str(e)}")
+            logging.error(f"Failed to connect to Lavalink or Lavalink node not ready. Error: {e}", exc_info=True)
+            # This is a critical failure.
+            exit(f"Setup failed due to Lavalink connection error: {str(e)}")
+
+        # Load extensions
+        logging.info("Starting to load extensions...")
+        await self.load_extensions()
+        logging.info("Extension loading process completed.")
+
+        # Sync commands
+        logging.info("Attempting to sync application commands...")
+        try:
+            await self.tree.sync()
+            logging.info("Application commands synced successfully.")
+        except Exception as e:
+            logging.error("Failed to sync application commands.", exc_info=True)
+            # Bot can continue running if command sync fails, but commands might not be available.
+            # No exit here, just log the error.
 
     async def on_ready(self):
-        print(f"Logged in as {self.user}")
+        logging.info(f"Logged in as {self.user} (ID: {self.user.id})")
         await self.change_presence(activity=discord.Activity(
-            type=discord.ActivityType.Streaming, name="All your data to the NSA"))
+            type=discord.ActivityType.streaming, name="All your data to the NSA"))
 
 async def main():
     bot = MusicBot()
