@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import asyncio
 import logging
 from pathlib import Path
+import wavelink # Added for Lavalink
 
 # Configuration
 load_dotenv()
@@ -31,6 +32,7 @@ class DebugBotOnReady(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True # If cogs.system uses it for prefix commands
         intents.guilds = True
+        intents.voice_states = True # Required for Lavalink/voice functionality
         # intents.guild_messages = True # Covered by default intents if message_content is true
 
         super().__init__(command_prefix=DEFAULT_PREFIX, intents=intents)
@@ -57,6 +59,26 @@ class DebugBotOnReady(commands.Bot):
             logger.error(f"ExtensionFailed: cogs.system failed to load. Error: {e.original}", exc_info=True)
         except Exception as e:
             logger.error(f"An unexpected error occurred while loading cogs.system.", exc_info=True)
+
+        logger.info("Attempting to load 'cogs.music' extension (called from on_ready)...") # Updated here
+        try:
+            await self.load_extension("cogs.music") # Updated here
+            logger.info("Successfully loaded extension: cogs.music") # Updated here
+        except commands.ExtensionAlreadyLoaded:
+            logger.warning("ExtensionAlreadyLoaded: cogs.music is already loaded. Attempting to reload...") # Updated here
+            try:
+                await self.reload_extension("cogs.music") # Updated here
+                logger.info("Successfully reloaded extension: cogs.music") # Updated here
+            except Exception as e_reload:
+                logger.error(f"Failed to reload cogs.music.", exc_info=True) # Updated here
+        except commands.ExtensionNotFound:
+            logger.error("ExtensionNotFound: cogs.music could not be found.", exc_info=True) # Updated here
+        except commands.NoEntryPointError:
+            logger.error("NoEntryPointError: cogs.music does not have a 'setup' function.", exc_info=True) # Updated here
+        except commands.ExtensionFailed as e:
+            logger.error(f"ExtensionFailed: cogs.music failed to load. Error: {e.original}", exc_info=True) # Updated here
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while loading cogs.music.", exc_info=True) # Updated here
         
         logger.info(f"Current cogs after load_extensions_debug: {self.cogs}")
         logger.info(f"Current commands after load_extensions_debug: {[cmd.name for cmd in self.commands]}") # This will show prefixed commands
@@ -82,10 +104,34 @@ class DebugBotOnReady(commands.Bot):
 
     async def setup_hook(self):
         # setup_hook is called before login.
-        # We are moving the core logic to on_ready for this debug version.
-        logger.info("DebugBotOnReady setup_hook called (minimal, logic moved to on_ready).")
-        # If cogs.system had some setup_hook dependent logic that wasn't command registration,
-        # it might be an issue, but typically commands are the focus.
+        logger.info("DebugBotOnReady setup_hook called.")
+
+        # Lavalink Node Setup
+        lavalink_host = os.getenv('LAVALINK_HOST', '127.0.0.1')
+        lavalink_port = int(os.getenv('LAVALINK_PORT', 2333))
+        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'SUPERSECUREPASSWORD_A1B2C3') # Default to the one we set
+        lavalink_uri = f"http://{lavalink_host}:{lavalink_port}"
+
+        logger.info(f"Attempting to connect to Lavalink node at {lavalink_uri}")
+        node = wavelink.Node(
+            uri=lavalink_uri,
+            password=lavalink_password,
+            client=self 
+        )
+        try:
+            await wavelink.Pool.connect(nodes=[node], client=self, cache_capacity=100)
+            logger.info("Successfully connected to Lavalink node.")
+        except Exception as e:
+            logger.error(f"Failed to connect to Lavalink node: {e}", exc_info=True)
+            # Depending on the desired behavior, you might want to exit or handle this differently.
+            # For now, it will log the error and the bot will continue to run without Lavalink.
+
+        # The rest of the setup logic (extension loading, command syncing)
+        # will be triggered by on_ready for this debug version.
+        # However, for production, it's better to load extensions here too.
+        # For now, keeping the debug flow where on_ready triggers them.
+        logger.info("DebugBotOnReady setup_hook finished initial Lavalink setup.")
+
 
     async def on_ready(self):
         logger.info(f"DebugBotOnReady logged in as {self.user} (ID: {self.user.id})")
@@ -101,11 +147,60 @@ class DebugBotOnReady(commands.Bot):
             logger.info("Syncing application commands (debug mode from on_ready)...")
             await self.sync_app_commands_debug()
             logger.info("Application command syncing (from on_ready) completed.")
+
+            # Wavelink event listener (example)
+            if wavelink.Pool.nodes:
+                 logger.info("Wavelink nodes are available. Attaching on_node_ready listener.")
+                 # Access the first node for simplicity, or iterate if multiple
+                 # node = wavelink.Pool.get_node() # Gets the default node
+                 # if node:
+                 #    node.set_hook(self.on_wavelink_node_ready) # Not a direct method, need to use event
+                 # For Wavelink 3.x, events are handled via bot.add_listener
+                 self.add_listener(self.on_wavelink_node_ready, 'on_wavelink_node_ready')
+                 self.add_listener(self.on_wavelink_track_end, 'on_wavelink_track_end')
+                 self.add_listener(self.on_wavelink_track_start, 'on_wavelink_track_start')
+                 self.add_listener(self.on_wavelink_track_exception, 'on_wavelink_track_exception')
+                 self.add_listener(self.on_wavelink_track_stuck, 'on_wavelink_track_stuck')
+                 logger.info("Added Wavelink event listeners.")
+            else:
+                logger.warning("No Wavelink nodes available after setup_hook. Player functionality will be impaired.")
             
             self.setup_called_once = True
             logger.info("Setup logic in on_ready marked as complete.")
         else:
             logger.info("Setup logic in on_ready already performed, skipping.")
+
+    # Wavelink Event Handlers (examples, can be moved to a cog)
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
+        node = payload.node
+        logger.info(f"Wavelink Node '{node.identifier}' is ready! Session ID: {payload.session_id}")
+
+    async def on_wavelink_track_end(self, payload: wavelink.TrackEndEventPayload) -> None:
+        player = payload.player
+        track = payload.track
+        reason = payload.reason
+        logger.info(f"Track '{track.title}' ended on player {player.guild.id}. Reason: {reason}")
+        # Add logic here for auto-play, queue handling, etc.
+        # if player:
+        #    await player.handle_track_end(reason) # Example: delegate to player method
+
+    async def on_wavelink_track_start(self, payload: wavelink.TrackStartEventPayload) -> None:
+        player = payload.player
+        track = payload.track
+        logger.info(f"Track '{track.title}' started on player {player.guild.id}.")
+
+    async def on_wavelink_track_exception(self, payload: wavelink.TrackExceptionEventPayload) -> None:
+        player = payload.player
+        track = payload.track
+        error = payload.error
+        logger.error(f"Track '{track.title}' on player {player.guild.id} encountered an exception: {error}", exc_info=error)
+
+    async def on_wavelink_track_stuck(self, payload: wavelink.TrackStuckEventPayload) -> None:
+        player = payload.player
+        track = payload.track
+        threshold = payload.threshold_ms
+        logger.warning(f"Track '{track.title}' on player {player.guild.id} is stuck (threshold: {threshold}ms).")
+
 
     async def on_command_error(self, ctx, error): # For prefixed commands, if any
         logger.error(f"Error in prefixed command {ctx.command}: {error}", exc_info=True)
