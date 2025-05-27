@@ -7,6 +7,9 @@ import math
 import asyncio
 import os
 from typing import Optional, Union
+import logging # Added for logger
+
+logger = logging.getLogger(__name__) # Added for logger
 
 URL_REGEX = re.compile(r'https?://(?:www\.)?.+')
 
