@@ -7,24 +7,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def get_nvidia_smi_info(): # Renamed for clarity, still uses nvidia-smi
-    if platform.system() == "Windows":
-        try:
-            # Attempt to run nvidia-smi
-            result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, check=True, encoding='utf-8')
-            return result.stdout
-        except FileNotFoundError:
-            logger.warning("nvidia-smi command not found.")
-            return "NVIDIA GPU information is not available (nvidia-smi not found)."
-        except subprocess.CalledProcessError as e:
-            logger.error(f"nvidia-smi command failed with error: {e.stderr}")
-            return f"Failed to retrieve GPU information. Error: {e.stderr}"
-        except Exception as e:
-            logger.exception("An unexpected error occurred while fetching GPU info.")
-            return f"An unexpected error occurred: {str(e)}"
-    else:
-        # For non-Windows, explicitly state nvidia-smi is typically Windows or requires manual setup.
-        return "nvidia-smi command is typically used on Windows or systems with NVIDIA drivers correctly configured in PATH."
+def get_nvidia_smi_info():
+    """Attempts to run the 'nvidia-smi' command and return its output."""
+    try:
+        # Attempt to run nvidia-smi
+        result = subprocess.run(['nvidia-smi'], capture_output=True, text=True, check=True, encoding='utf-8')
+        return result.stdout
+    except FileNotFoundError:
+        logger.warning("nvidia-smi command not found. It might not be installed or not in PATH.")
+        return "NVIDIA GPU information is not available (nvidia-smi command not found)."
+    except subprocess.CalledProcessError as e:
+        logger.error(f"nvidia-smi command failed with error code {e.returncode}: {e.stderr}")
+        return f"Failed to retrieve GPU information. nvidia-smi exited with error: {e.stderr}"
+    except Exception as e:
+        logger.exception("An unexpected error occurred while trying to execute nvidia-smi.")
+        return f"An unexpected error occurred while fetching GPU info: {str(e)}"
 
 def get_active_users_info(): # Renamed from get_ssh_clients
     """Gets active user information using the 'who' command."""
