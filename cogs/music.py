@@ -162,8 +162,10 @@ class MusicCog(commands.Cog): # Renamed class
 
         try:
             search_result = await wavelink.Playable.search(query)
-            if not search_result:
-                await interaction.followup.send("No results found.", ephemeral=True)
+            
+            # Primary check for Wavelink v3, which returns None or empty list if no tracks are found.
+            if not search_result: 
+                await interaction.followup.send("No results found for your query.", ephemeral=True)
                 return
             
             # Ensure player.text_channel is set for later messages by on_wavelink_track_end
@@ -224,8 +226,12 @@ class MusicCog(commands.Cog): # Renamed class
 
 
             else: # Single track or search result (list of Playable)
+                # If search_result is a list, take the first item. Otherwise, it's a single Playable.
                 single_track = search_result[0] if isinstance(search_result, list) else search_result
-                if not isinstance(single_track, wavelink.Playable): # Ensure it's a playable track
+                
+                # This check might be redundant if wavelink.Playable.search always returns Playable or list of Playable
+                # but kept for safety.
+                if not isinstance(single_track, wavelink.Playable): 
                     await interaction.followup.send("Could not process the search result into a playable track.", ephemeral=True)
                     return
 
@@ -241,13 +247,15 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.play(single_track)
                     await interaction.followup.send(f"🎶 Playing: **{single_track.title}** (Requested by: {requester_mention})")
 
-        except wavelink.exceptions.NoTracksError:
-            await interaction.followup.send("No tracks found for your query. Try a different search term or URL.", ephemeral=True)
-        except wavelink.exceptions.LavalinkLoadException as e: # More specific error for Lavalink issues
-            await interaction.followup.send(f"Lavalink error: {e.error} - {e.message}. This might be due to restrictions on the track/playlist or a Lavalink issue.", ephemeral=True)
+        # Removed specific NoTracksError as it's handled by `if not search_result:`
+        except wavelink.exceptions.LavalinkLoadException as e: 
+            # Log the error for server-side diagnosis
+            # logger.error(f"LavalinkLoadException in /play: {e.error} - {e.message}", exc_info=True)
+            await interaction.followup.send(f"Lavalink error: {e.error} - {e.message}. This might be due to restrictions on the track/playlist or a Lavalink server issue.", ephemeral=True)
         except Exception as e:
-            # print(f"Unexpected error in /play command: {e}", exc_info=True) # Use actual logging
-            await interaction.followup.send(f"An unexpected error occurred. Details: {str(e)}", ephemeral=True)
+            # Log the error for server-side diagnosis
+            # logger.exception(f"Unexpected error in /play command: {e}")
+            await interaction.followup.send(f"An unexpected error occurred while processing your request. Please try again later. Details: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel.")
     async def disconnect(self, interaction: discord.Interaction):

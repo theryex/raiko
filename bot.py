@@ -40,7 +40,8 @@ class DebugBotOnReady(commands.Bot):
         logger.info("DebugBotOnReady super().__init__() called.")
 
     async def load_extensions_debug(self):
-        logger.info("Attempting to load 'cogs.system' extension (called from on_ready)...")
+        # Load cogs.system
+        logger.info("Attempting to load 'cogs.system' extension...")
         try:
             await self.load_extension("cogs.system")
             logger.info("Successfully loaded extension: cogs.system")
@@ -50,38 +51,39 @@ class DebugBotOnReady(commands.Bot):
                 await self.reload_extension("cogs.system")
                 logger.info("Successfully reloaded extension: cogs.system")
             except Exception as e_reload:
-                logger.error(f"Failed to reload cogs.system.", exc_info=True)
+                logger.error("Failed to reload cogs.system.", exc_info=True)
         except commands.ExtensionNotFound:
-            logger.error("ExtensionNotFound: cogs.system could not be found.", exc_info=True)
+            logger.error("ExtensionNotFound: cogs.system could not be found. Ensure cogs/system.py exists.", exc_info=True)
         except commands.NoEntryPointError:
-            logger.error("NoEntryPointError: cogs.system does not have a 'setup' function.", exc_info=True)
+            logger.error("NoEntryPointError: cogs.system (cogs/system.py) does not have a 'setup' function.", exc_info=True)
         except commands.ExtensionFailed as e:
-            logger.error(f"ExtensionFailed: cogs.system failed to load. Error: {e.original}", exc_info=True)
+            logger.error("ExtensionFailed: cogs.system (cogs/system.py) failed to load. Error: %s", e.original, exc_info=True)
         except Exception as e:
-            logger.error(f"An unexpected error occurred while loading cogs.system.", exc_info=True)
+            logger.error("An unexpected error occurred while loading cogs.system.", exc_info=True)
 
-        logger.info("Attempting to load 'cogs.music' extension (called from on_ready)...") # Updated here
+        # Load cogs.music
+        logger.info("Attempting to load 'cogs.music' extension...")
         try:
-            await self.load_extension("cogs.music") # Updated here
-            logger.info("Successfully loaded extension: cogs.music") # Updated here
+            await self.load_extension("cogs.music")
+            logger.info("Successfully loaded extension: cogs.music")
         except commands.ExtensionAlreadyLoaded:
-            logger.warning("ExtensionAlreadyLoaded: cogs.music is already loaded. Attempting to reload...") # Updated here
+            logger.warning("ExtensionAlreadyLoaded: cogs.music is already loaded. Attempting to reload...")
             try:
-                await self.reload_extension("cogs.music") # Updated here
-                logger.info("Successfully reloaded extension: cogs.music") # Updated here
+                await self.reload_extension("cogs.music")
+                logger.info("Successfully reloaded extension: cogs.music")
             except Exception as e_reload:
-                logger.error(f"Failed to reload cogs.music.", exc_info=True) # Updated here
+                logger.error("Failed to reload cogs.music.", exc_info=True)
         except commands.ExtensionNotFound:
-            logger.error("ExtensionNotFound: cogs.music could not be found.", exc_info=True) # Updated here
+            logger.error("ExtensionNotFound: cogs.music could not be found. Ensure cogs/music.py exists.", exc_info=True)
         except commands.NoEntryPointError:
-            logger.error("NoEntryPointError: cogs.music does not have a 'setup' function.", exc_info=True) # Updated here
+            logger.error("NoEntryPointError: cogs.music (cogs/music.py) does not have a 'setup' function.", exc_info=True)
         except commands.ExtensionFailed as e:
-            logger.error(f"ExtensionFailed: cogs.music failed to load. Error: {e.original}", exc_info=True) # Updated here
+            logger.error("ExtensionFailed: cogs.music (cogs/music.py) failed to load. This might be due to an error within the cog itself (e.g., Lavalink node not ready, import error). Error: %s", e.original, exc_info=True)
         except Exception as e:
-            logger.error(f"An unexpected error occurred while loading cogs.music.", exc_info=True) # Updated here
+            logger.error("An unexpected error occurred while loading cogs.music.", exc_info=True)
         
-        logger.info(f"Current cogs after load_extensions_debug: {self.cogs}")
-        logger.info(f"Current commands after load_extensions_debug: {[cmd.name for cmd in self.commands]}") # This will show prefixed commands
+        logger.info(f"Current cogs after extension loading attempt: {list(self.cogs.keys())}") # More concise log of loaded cogs
+        # logger.info(f"Current commands after load_extensions_debug: {[cmd.name for cmd in self.commands]}") # This logs prefixed commands, tree commands logged in on_ready
 
     async def sync_app_commands_debug(self):
         logger.info("Attempting to sync application commands (called from on_ready)...")
@@ -103,34 +105,37 @@ class DebugBotOnReady(commands.Bot):
             logger.error(f"An unexpected error occurred during command syncing.", exc_info=True)
 
     async def setup_hook(self):
-        # setup_hook is called before login.
-        logger.info("DebugBotOnReady setup_hook called.")
+        logger.info("DebugBotOnReady setup_hook called.") # Moved to the beginning
 
         # Lavalink Node Setup
         lavalink_host = os.getenv('LAVALINK_HOST', '127.0.0.1')
-        lavalink_port = int(os.getenv('LAVALINK_PORT', 2333))
-        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'SUPERSECUREPASSWORD_A1B2C3') # Default to the one we set
-        lavalink_uri = f"http://{lavalink_host}:{lavalink_port}"
+        lavalink_port = int(os.getenv('LAVALINK_PORT', 2333)) # Ensure port is int
+        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'SUPERSECUREPASSWORD_A1B2C3')
+        lavalink_uri = f"http://{lavalink_host}:{lavalink_port}" # Wavelink V3 uses http
 
-        logger.info(f"Attempting to connect to Lavalink node at {lavalink_uri}")
+        logger.info(f"Attempting to connect to Lavalink node at {lavalink_uri}...")
         node = wavelink.Node(
             uri=lavalink_uri,
             password=lavalink_password,
-            client=self 
+            client=self  # Pass the bot instance as the client
         )
         try:
+            # For Wavelink 3.x, use wavelink.Pool.connect()
+            # The `nodes` parameter takes a list of Node objects.
             await wavelink.Pool.connect(nodes=[node], client=self, cache_capacity=100)
-            logger.info("Successfully connected to Lavalink node.")
+            logger.info(f"Successfully initiated connection to Lavalink node: {node.identifier}")
         except Exception as e:
-            logger.error(f"Failed to connect to Lavalink node: {e}", exc_info=True)
-            # Depending on the desired behavior, you might want to exit or handle this differently.
-            # For now, it will log the error and the bot will continue to run without Lavalink.
+            # Specific critical log message for connection failure
+            logger.critical(f"CRITICAL: Failed to connect to Lavalink node at {lavalink_uri}. Music functions will be unavailable. Error: {e}", exc_info=True)
+            # Depending on desired behavior, you might want to exit or raise an exception to stop the bot.
+            # For now, it logs and continues, but music cog might fail to load or operate.
 
-        # The rest of the setup logic (extension loading, command syncing)
-        # will be triggered by on_ready for this debug version.
-        # However, for production, it's better to load extensions here too.
-        # For now, keeping the debug flow where on_ready triggers them.
-        logger.info("DebugBotOnReady setup_hook finished initial Lavalink setup.")
+        logger.info("Lavalink setup in setup_hook completed.")
+        # Note: Actual node readiness is confirmed by on_wavelink_node_ready event.
+
+        # It's generally better practice to load extensions in setup_hook after initial async setup like Lavalink.
+        # However, the current debug flow calls it from on_ready. We will keep that for now as per instruction,
+        # but acknowledge this point. If moved here, ensure on_ready doesn't also try to load them.
 
 
     async def on_ready(self):
@@ -138,39 +143,45 @@ class DebugBotOnReady(commands.Bot):
         logger.info(f"Bot is in {len(self.guilds)} guilds.")
         
         if not self.setup_called_once:
-            logger.info("Running setup logic in on_ready for the first time...")
+            logger.info("Running one-time setup logic in on_ready...")
             
-            logger.info("Loading extensions (debug mode from on_ready)...")
-            await self.load_extensions_debug()
-            logger.info("Extension loading process (from on_ready) completed.")
+            logger.info("Loading extensions (as per debug flow from on_ready)...")
+            await self.load_extensions_debug() # Call to load extensions
+            logger.info("Extension loading process completed.")
             
-            logger.info("Syncing application commands (debug mode from on_ready)...")
-            await self.sync_app_commands_debug()
-            logger.info("Application command syncing (from on_ready) completed.")
+            logger.info("Syncing application commands (as per debug flow from on_ready)...")
+            await self.sync_app_commands_debug() # Call to sync commands
+            logger.info("Application command syncing process completed.")
 
-            # Wavelink event listener (example)
-            if wavelink.Pool.nodes:
-                 logger.info("Wavelink nodes are available. Attaching on_node_ready listener.")
-                 # Access the first node for simplicity, or iterate if multiple
-                 # node = wavelink.Pool.get_node() # Gets the default node
-                 # if node:
-                 #    node.set_hook(self.on_wavelink_node_ready) # Not a direct method, need to use event
-                 # For Wavelink 3.x, events are handled via bot.add_listener
+            # Wavelink event listener setup (remains important)
+            if wavelink.Pool.nodes: # Check if any nodes were added in setup_hook
+                 logger.info("Wavelink nodes are available in the pool. Attaching event listeners.")
+                 # Ensure these listeners are added only once if on_ready can be called multiple times.
+                 # The self.setup_called_once flag helps with this.
                  self.add_listener(self.on_wavelink_node_ready, 'on_wavelink_node_ready')
                  self.add_listener(self.on_wavelink_track_end, 'on_wavelink_track_end')
                  self.add_listener(self.on_wavelink_track_start, 'on_wavelink_track_start')
                  self.add_listener(self.on_wavelink_track_exception, 'on_wavelink_track_exception')
                  self.add_listener(self.on_wavelink_track_stuck, 'on_wavelink_track_stuck')
-                 logger.info("Added Wavelink event listeners.")
+                 logger.info("Global Wavelink event listeners attached.")
             else:
-                logger.warning("No Wavelink nodes available after setup_hook. Player functionality will be impaired.")
+                logger.warning("No Wavelink nodes available in the pool after setup_hook. Player functionality will be impaired. Check Lavalink server and connection settings.")
             
             self.setup_called_once = True
-            logger.info("Setup logic in on_ready marked as complete.")
+            logger.info("One-time setup logic in on_ready marked as complete.")
         else:
-            logger.info("Setup logic in on_ready already performed, skipping.")
+            logger.info("One-time setup logic in on_ready already performed, skipping.")
 
-    # Wavelink Event Handlers (examples, can be moved to a cog)
+        logger.info(f"Bot is ready. Cogs loaded: {list(self.cogs.keys())}")
+        # To get app commands after sync, use self.tree.get_commands()
+        # This might be an empty list if sync hasn't completed fully or if run too early.
+        # Best to log this after sync_app_commands_debug has demonstrably finished.
+        # For now, we'll log what's available in the tree at this point of on_ready.
+        app_commands_list = [cmd.name for cmd in self.tree.get_commands()]
+        logger.info(f"Application commands available in bot's tree: {app_commands_list}")
+
+
+    # Wavelink Event Handlers (global logging)
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
         node = payload.node
         logger.info(f"Wavelink Node '{node.identifier}' is ready! Session ID: {payload.session_id}")
