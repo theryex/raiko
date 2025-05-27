@@ -248,10 +248,16 @@ class MusicCog(commands.Cog): # Renamed class
                     await interaction.followup.send(f"🎶 Playing: **{single_track.title}** (Requested by: {requester_mention})")
 
         # Removed specific NoTracksError as it's handled by `if not search_result:`
-        except wavelink.exceptions.LavalinkLoadException as e: 
+        except wavelink.exceptions.LavalinkLoadException as e:
             # Log the error for server-side diagnosis
-            # logger.error(f"LavalinkLoadException in /play: {e.error} - {e.message}", exc_info=True)
-            await interaction.followup.send(f"Lavalink error: {e.error} - {e.message}. This might be due to restrictions on the track/playlist or a Lavalink server issue.", ephemeral=True)
+            # Assuming logger is defined at the top of the file:
+            # import logging
+            # logger = logging.getLogger(__name__)
+            # If not, you'd need to add it or use print for temporary debugging.
+            # For now, let's assume a logger object `logger` exists as per previous context.
+            logger.error(f"LavalinkLoadException in /play. Error: {e.error}, Data: {e.data}", exc_info=False)
+            error_message = e.data.get('message', 'No specific message from Lavalink.')
+            await interaction.followup.send(f"Lavalink error: {e.error}. Details: {error_message}. This might be due to restrictions on the track/playlist or a Lavalink server issue.", ephemeral=True)
         except Exception as e:
             # Log the error for server-side diagnosis
             # logger.exception(f"Unexpected error in /play command: {e}")

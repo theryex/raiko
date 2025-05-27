@@ -76,10 +76,10 @@ class System(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="nvidia_smi", description="Shows NVIDIA GPU utilization (from 'nvidia-smi' command).")
-    async def nvidia_smi_command(self, interaction: discord.Interaction): # Method name updated for clarity
+    @app_commands.command(name="gpuinfo", description="Shows NVIDIA GPU utilization (from 'nvidia-smi' command).")
+    async def gpuinfo_command(self, interaction: discord.Interaction): # Method and log updated
         await interaction.response.defer()
-        logger.info(f"/nvidia_smi command invoked by {interaction.user}")
+        logger.info(f"/gpuinfo command invoked by {interaction.user}") # Log updated
         gpu_info = get_nvidia_smi_info()
         
         if not gpu_info.strip(): # Handle cases where gpu_info might be empty or just whitespace
@@ -93,10 +93,10 @@ class System(commands.Cog):
             else: # Subsequent chunks as new messages
                 await interaction.channel.send(f"```{chunk}```")
 
-    @app_commands.command(name="who", description="Shows currently active users (from 'who' command).")
-    async def who_command(self, interaction: discord.Interaction): # Method name updated for clarity
+    @app_commands.command(name="users", description="Shows currently active users (from 'who' command).")
+    async def users_command(self, interaction: discord.Interaction): # Method and log updated
         await interaction.response.defer()
-        logger.info(f"/who command invoked by {interaction.user}")
+        logger.info(f"/users command invoked by {interaction.user}") # Log updated
         active_users_info = get_active_users_info()
 
         if not active_users_info.strip():
