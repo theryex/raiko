@@ -15,7 +15,7 @@ spring:
 # Lavalink server core settings
 lavalink:
   server:
-    password: "SUPERSECUREPASSWORD_A1B2C3" # IMPORTANT: Must match LAVALINK_PASSWORD in your .env
+    password: "youshallnotpass" # IMPORTANT: Must match LAVALINK_PASSWORD in your .env
     sources:
       # Disable Lavalink v4's native YouTube source to use the plugin
       youtube: false
