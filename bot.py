@@ -110,7 +110,8 @@ class DebugBotOnReady(commands.Bot):
         # Lavalink Node Setup
         lavalink_host = os.getenv('LAVALINK_HOST', '127.0.0.1')
         lavalink_port = int(os.getenv('LAVALINK_PORT', 2333)) # Ensure port is int
-        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'SUPERSECUREPASSWORD_A1B2C3')
+        lavalink_password = os.getenv('LAVALINK_PASSWORD', 'youshallnotpass') # Changed default password
+        logger.info(f"Lavalink password being used by bot: '{lavalink_password}'") # Added log line
         lavalink_uri = f"ws://{lavalink_host}:{lavalink_port}" # Changed to ws:// for Wavelink v3
 
         logger.info(f"Attempting to connect to Lavalink node at {lavalink_uri}...")
