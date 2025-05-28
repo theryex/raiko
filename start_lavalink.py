@@ -10,26 +10,24 @@ import textwrap
 from dotenv import load_dotenv
 
 # Configuration
-LAVALINK_VERSION = "3.7.11"
-PLUGIN_VERSION = "1.13.0"
-PLUGIN_NAME = "youtube-plugin"
-PLUGIN_JAR_NAME = f"{PLUGIN_NAME}-{PLUGIN_VERSION}.jar"
-PLUGIN_URL = f"https://github.com/lavalink-devs/youtube-source/releases/download/{PLUGIN_VERSION}/{PLUGIN_JAR_NAME}"
+LAVALINK_VERSION = "4.0.8" # Updated to Lavalink v4.x
 
-SPOTIFY_PLUGIN_NAME = "lavasrc-plugin"
-SPOTIFY_PLUGIN_VERSION = "4.0.0"
+# Old YouTube plugin (youtube-plugin) variables removed as Lavalink v4 has built-in YouTube support.
+
+SPOTIFY_PLUGIN_NAME = "lavasrc-plugin" # LavaSrc plugin for Spotify, Apple Music, etc.
+SPOTIFY_PLUGIN_VERSION = "4.0.0" # Ensure this is compatible with Lavalink v4.0.8
 SPOTIFY_PLUGIN_JAR_NAME = f"LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar"
 SPOTIFY_PLUGIN_URL = f"https://github.com/topi314/LavaSrc/releases/download/{SPOTIFY_PLUGIN_VERSION}/LavaSrc-{SPOTIFY_PLUGIN_VERSION}.jar"
 
 LAVALINK_DIR = "lavalink"
 JAR_NAME = "Lavalink.jar"
 CONFIG_NAME = "application.yml"
-EXAMPLE_CONFIG_NAME = "application.yml.example"
+EXAMPLE_CONFIG_NAME = "application.yml.example" # Lavalink v4 still uses application.yml.example
 PLUGINS_DIR = os.path.join(LAVALINK_DIR, "plugins")
 
 JAR_PATH = os.path.join(LAVALINK_DIR, JAR_NAME)
 CONFIG_PATH = os.path.join(LAVALINK_DIR, CONFIG_NAME)
-PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, PLUGIN_JAR_NAME)
+# PLUGIN_JAR_PATH removed (old YouTube plugin)
 SPOTIFY_PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, SPOTIFY_PLUGIN_JAR_NAME)
 
 def get_lavalink_urls(version):
@@ -62,12 +60,9 @@ def check_plugin_config(config_file_path):
         with open(config_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
 
-        youtube_plugin_present = os.path.exists(PLUGIN_JAR_PATH)
-        if youtube_plugin_present:
-            built_in_yt_nested_enabled = re.search(r"lavalink:\s*\n.*?\s+server:\s*\n.*?\s+sources:\s*\n.*?\s+youtube:\s*true", content, re.DOTALL | re.IGNORECASE)
-            if built_in_yt_nested_enabled:
-                print("Error: Built-in YouTube source must be disabled when using the YouTube plugin.")
-                config_ok = False
+        # Old YouTube plugin check removed.
+        # For Lavalink v4, 'youtube: true' in sources is standard for built-in support.
+        # If a user *were* to add a different YouTube plugin for v4, they'd need to manage source settings.
 
         spotify_plugin_present = os.path.exists(SPOTIFY_PLUGIN_JAR_PATH)
         if spotify_plugin_present:
@@ -97,11 +92,14 @@ def setup_lavalink():
         except OSError:
             return False
 
-    if not os.path.exists(PLUGIN_JAR_PATH):
-        download_file(PLUGIN_URL, PLUGIN_JAR_PATH, "YouTube Plugin")
+    # Old YouTube plugin download logic removed.
 
     if not os.path.exists(SPOTIFY_PLUGIN_JAR_PATH):
-        download_file(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, "Spotify Plugin")
+        download_file(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, f"{SPOTIFY_PLUGIN_NAME} v{SPOTIFY_PLUGIN_VERSION}") # More descriptive name
+
+    return True
+
+def start_lavalink():
 
     return True
 

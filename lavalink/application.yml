@@ -17,8 +17,8 @@ lavalink:
   server:
     password: "SUPERSECUREPASSWORD_A1B2C3" # IMPORTANT: Must match LAVALINK_PASSWORD in your .env
     sources:
-      # Disable sources handled by plugins
-      youtube: false
+      # Enable Lavalink v4's native YouTube source
+      youtube: true
       # Enable desired built-in sources
       soundcloud: true
       bandcamp: true
@@ -39,9 +39,9 @@ lavalink:
       lowPass: true
     # Other optional Lavalink settings (defaults are often fine)
     bufferDurationMs: 400
-    # youtubePlaylistLoadLimit: 6 # This applies to the *built-in* source, less relevant when disabled
+    # youtubePlaylistLoadLimit: 6 # This applies to the *built-in* source. Default is usually fine.
     playerUpdateInterval: 5 # In seconds
-    # youtubeSearchEnabled: true # Also for built-in source, plugin handles its own searching
+    youtubeSearchEnabled: true # Ensure this is true for Lavalink's native ytsearch: and ytmsearch:
     soundcloudSearchEnabled: true # Keep true if you want Lavalink's scsearch: to work
     gc-warnings: true # Logs Java garbage collection warnings
     frameBufferDurationMs: 1000  # Increase frame buffer duration
