@@ -10,14 +10,14 @@ import wavelink # Added for Lavalink
 # Configuration
 load_dotenv()
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO, # Changed from DEBUG to INFO
     format='%(asctime)s [%(levelname)s] [%(name)s] - %(message)s',
     handlers=[
-        logging.FileHandler('bot_debug_on_ready.log', encoding='utf-8', mode='w'), # New log file
-        logging.StreamHandler()
+        logging.FileHandler('bot_debug_on_ready.log', encoding='utf-8', mode='w'), # New log file for bot's own logs
+        logging.StreamHandler() # For console output
     ]
 )
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__) # This is for the bot's own application-level logging
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 if not TOKEN:
@@ -236,6 +236,12 @@ async def main():
         logger.info("DebugBotOnReady main() finished or encountered an error.")
 
 if __name__ == "__main__":
+    # Set higher logging levels for noisy libraries before starting the bot
+    logging.getLogger('discord').setLevel(logging.INFO)
+    logging.getLogger('wavelink').setLevel(logging.INFO)
+    # Optional: If discord.http is still too verbose with INFO, set it to WARNING
+    # logging.getLogger('discord.http').setLevel(logging.WARNING)
+    
     logger.info("DebugBotOnReady script execution started.")
     try:
         asyncio.run(main())
