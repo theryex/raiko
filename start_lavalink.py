@@ -13,6 +13,12 @@ from dotenv import load_dotenv
 LAVALINK_VERSION = "4.0.8" # Updated to Lavalink v4.x
 
 # Old YouTube plugin (youtube-plugin) variables removed as Lavalink v4 has built-in YouTube support.
+# However, per new instructions, we are adding a Lavalink v4 compatible YouTube plugin.
+V4_YOUTUBE_PLUGIN_NAME = "youtube-source" 
+V4_YOUTUBE_PLUGIN_VERSION = "1.4.0" # Placeholder - use actual latest compatible version
+V4_YOUTUBE_PLUGIN_JAR_NAME = f"{V4_YOUTUBE_PLUGIN_NAME}-{V4_YOUTUBE_PLUGIN_VERSION}.jar" 
+V4_YOUTUBE_PLUGIN_URL = f"https://github.com/lavalink-devs/youtube-source/releases/download/{V4_YOUTUBE_PLUGIN_VERSION}/{V4_YOUTUBE_PLUGIN_JAR_NAME}"
+
 
 SPOTIFY_PLUGIN_NAME = "lavasrc-plugin" # LavaSrc plugin for Spotify, Apple Music, etc.
 SPOTIFY_PLUGIN_VERSION = "4.0.0" # Ensure this is compatible with Lavalink v4.0.8
@@ -27,7 +33,7 @@ PLUGINS_DIR = os.path.join(LAVALINK_DIR, "plugins")
 
 JAR_PATH = os.path.join(LAVALINK_DIR, JAR_NAME)
 CONFIG_PATH = os.path.join(LAVALINK_DIR, CONFIG_NAME)
-# PLUGIN_JAR_PATH removed (old YouTube plugin)
+V4_YOUTUBE_PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, V4_YOUTUBE_PLUGIN_JAR_NAME) # Path for the new YouTube plugin
 SPOTIFY_PLUGIN_JAR_PATH = os.path.join(PLUGINS_DIR, SPOTIFY_PLUGIN_JAR_NAME)
 
 def get_lavalink_urls(version):
@@ -97,11 +103,14 @@ def setup_lavalink():
     if not os.path.exists(SPOTIFY_PLUGIN_JAR_PATH):
         download_file(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, f"{SPOTIFY_PLUGIN_NAME} v{SPOTIFY_PLUGIN_VERSION}") # More descriptive name
 
+    # Download new V4 YouTube Plugin
+    if not os.path.exists(V4_YOUTUBE_PLUGIN_JAR_PATH):
+        print(f"{V4_YOUTUBE_PLUGIN_NAME} v{V4_YOUTUBE_PLUGIN_VERSION} not found. Downloading...")
+        download_file(V4_YOUTUBE_PLUGIN_URL, V4_YOUTUBE_PLUGIN_JAR_PATH, f"{V4_YOUTUBE_PLUGIN_NAME} v{V4_YOUTUBE_PLUGIN_VERSION}")
+
     return True
 
-def start_lavalink():
-
-    return True
+# Removed redundant start_lavalink definition
 
 def start_lavalink():
     if not setup_lavalink():
@@ -124,8 +133,10 @@ def start_lavalink():
 
     java_command = [
         java_executable,
+        "-Dserver.port=2333",  # Explicitly set port
         "-Djava.net.preferIPv4Stack=true",
-        "-Dlogging.level.root=INFO",
+        # Removed -Dlogging.level.root=INFO as it should be controlled by application.yml
+        # Add other system properties here if needed, e.g., memory limits like "-Xmx1G"
         "-jar",
         JAR_PATH
     ]
