@@ -258,9 +258,9 @@ class MusicCog(commands.Cog): # Renamed class
             # logger = logging.getLogger(__name__)
             # If not, you'd need to add it or use print for temporary debugging.
             # For now, let's assume a logger object `logger` exists as per previous context.
-            logger.error(f"LavalinkLoadException in /play. Error: {e.error}, Data: {e.data}", exc_info=False)
-            error_message = e.data.get('message', 'No specific message from Lavalink.')
-            await interaction.followup.send(f"Lavalink error: {e.error}. Details: {error_message}. This might be due to restrictions on the track/playlist or a Lavalink server issue.", ephemeral=True)
+            logger.error(f"LavalinkLoadException in /play. Error string: {e}", exc_info=True)
+            user_friendly_error = getattr(e, 'error', str(e)) # Use e.error if available, else str(e)
+            await interaction.followup.send(f"Lavalink error: {user_friendly_error}. This might be due to restrictions on the track/playlist or a Lavalink server issue. Please check the track if it's valid and playable.", ephemeral=True)
         except Exception as e:
             # Log the error for server-side diagnosis
             # logger.exception(f"Unexpected error in /play command: {e}")
