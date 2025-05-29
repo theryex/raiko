@@ -44,7 +44,7 @@ def start_lavalink():
 
     java_command = [
         java_executable,
-        f"-Dspring.config.location={CONFIG_PATH}", # Added Spring config location
+        f"-Dspring.config.location=file:{os.path.abspath(CONFIG_PATH)}", # Use absolute path with file: prefix
         # Add other JVM options if needed, e.g., memory allocation
         # "-Xmx1G", 
         # "-Xms1G",
