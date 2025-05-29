@@ -44,7 +44,7 @@ def start_lavalink():
 
     java_command = [
         java_executable,
-        f"-Dspring.config.location=file:{os.path.abspath(CONFIG_PATH)}", # Use absolute path with file: prefix
+        f"-Dspring.config.location={os.path.abspath(CONFIG_PATH)}", # Use absolute path without file: prefix
         # Add other JVM options if needed, e.g., memory allocation
         # "-Xmx1G", 
         # "-Xms1G",
@@ -59,6 +59,7 @@ def start_lavalink():
         # Start Lavalink as a subprocess
         # Use Popen for non-blocking execution if you want to run other things in Python
         # For a simple startup script, call can be fine if it blocks until Lavalink is manually stopped.
+        print(f"DEBUG: Attempting to run Java command: {' '.join(java_command)}")
         process = subprocess.Popen(java_command, cwd=LAVALINK_DIR)
         print(f"Lavalink started with PID: {process.pid}")
         return process
