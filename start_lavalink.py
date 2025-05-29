@@ -16,7 +16,7 @@ LAVALINK_VERSION = "4.0.8" # Updated to Lavalink v4.x
 # Old YouTube plugin (youtube-plugin) variables removed as Lavalink v4 has built-in YouTube support.
 # However, per new instructions, we are adding a Lavalink v4 compatible YouTube plugin.
 V4_YOUTUBE_PLUGIN_NAME = "youtube-source" 
-V4_YOUTUBE_PLUGIN_VERSION = "1.4.0" # Placeholder - use actual latest compatible version
+V4_YOUTUBE_PLUGIN_VERSION = "1.5.3" # Placeholder - use actual latest compatible version
 V4_YOUTUBE_PLUGIN_JAR_NAME = f"{V4_YOUTUBE_PLUGIN_NAME}-{V4_YOUTUBE_PLUGIN_VERSION}.jar" 
 V4_YOUTUBE_PLUGIN_URL = f"https://github.com/lavalink-devs/youtube-source/releases/download/{V4_YOUTUBE_PLUGIN_VERSION}/{V4_YOUTUBE_PLUGIN_JAR_NAME}"
 
