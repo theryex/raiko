@@ -124,7 +124,7 @@ def start_lavalink():
     
     print(f"DEBUG: CONFIG_PATH is {CONFIG_PATH}") # ADD THIS LINE
     abs_config_path = os.path.abspath(CONFIG_PATH)
-    print(f"DEBUG: abs_config_path is {abs_config_path} (Note: not currently used in java_command's spring.config.location)") # ADD THIS LINE
+    print(f"DEBUG: abs_config_path is {abs_config_path}") # UPDATED THIS LINE
 
     dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
     load_dotenv(dotenv_path=dotenv_path, override=True)
@@ -142,11 +142,11 @@ def start_lavalink():
 
     java_command = [
         java_executable,
+        f"-Dspring.config.location={abs_config_path}", # THIS IS THE CRITICAL FIX
         "-Dserver.port=2333",  # Explicitly set port
         "-Djava.net.preferIPv4Stack=true",
         # Removed -Dlogging.level.root=INFO as it should be controlled by application.yml
         # Add other system properties here if needed, e.g., memory limits like "-Xmx1G"
-        # Note: This script does not use -Dspring.config.location like the other one.
         "-jar",
         JAR_PATH
     ]
