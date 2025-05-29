@@ -1,3 +1,4 @@
+print("DEBUG: TOP OF start_lavalink.py IN PROJECT ROOT IS RUNNING")
 import os
 import sys
 import subprocess
@@ -113,11 +114,17 @@ def setup_lavalink():
 # Removed redundant start_lavalink definition
 
 def start_lavalink():
+    print("DEBUG: Entered start_lavalink function (adapted from launch_lavalink_process)") # ADD THIS LINE
     if not setup_lavalink():
+        print("DEBUG: setup_lavalink failed (adapted from setup_lavalink_environment)") # ADD THIS LINE
         sys.exit("Setup failed. Please check your internet connection and try again.")
 
     if os.path.exists(CONFIG_PATH) and not check_plugin_config(CONFIG_PATH):
          sys.exit("Please fix the configuration issues and try again.")
+    
+    print(f"DEBUG: CONFIG_PATH is {CONFIG_PATH}") # ADD THIS LINE
+    abs_config_path = os.path.abspath(CONFIG_PATH)
+    print(f"DEBUG: abs_config_path is {abs_config_path} (Note: not currently used in java_command's spring.config.location)") # ADD THIS LINE
 
     dotenv_path = os.path.join(os.path.dirname(__file__), '.env')
     load_dotenv(dotenv_path=dotenv_path, override=True)
@@ -130,6 +137,8 @@ def start_lavalink():
     java_executable = "java"
     if platform.system() == "Windows":
         java_executable = "java.exe"
+    
+    print(f"DEBUG: java_executable is {java_executable}") # ADD THIS LINE
 
     java_command = [
         java_executable,
@@ -137,9 +146,12 @@ def start_lavalink():
         "-Djava.net.preferIPv4Stack=true",
         # Removed -Dlogging.level.root=INFO as it should be controlled by application.yml
         # Add other system properties here if needed, e.g., memory limits like "-Xmx1G"
+        # Note: This script does not use -Dspring.config.location like the other one.
         "-jar",
         JAR_PATH
     ]
+    
+    print(f"DEBUG: Attempting to run Java command: {' '.join(java_command)}") # ENSURE THIS LINE IS PRESENT OR ADDED
 
     process = None
     try:
