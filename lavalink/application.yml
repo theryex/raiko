@@ -21,7 +21,7 @@ plugins:
       spotify: true
       applemusic: false
       deezer: false
-      youtube: false # Let the dedicated youtube-source plugin handle YouTube for playback
+      youtube: true # Let the dedicated youtube-source plugin handle YouTube for playback
       # Add other lavasrc sources here and set to false if not needed
       # e.g., yandexmusic: false, flowerytts: false, vkmusic: false, tidal: false, qobuz: false, ytdlp: false
     spotify:
