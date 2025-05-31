@@ -45,21 +45,21 @@ def download_file_with_progress(url, destination_path, description):
     try:
         print(f"Downloading {description} from {url} to {destination_path}...")
         os.makedirs(os.path.dirname(destination_path), exist_ok=True)
-        
+
         headers = {'User-Agent': 'Lavalink-Setup-Script/1.0'}
         req = urllib.request.Request(url, headers=headers)
-        
+
         with urllib.request.urlopen(req) as response, open(destination_path, 'wb') as out_file:
             if response.status != 200:
                 print(f"Error: Failed to download {description}. HTTP Status: {response.status}")
                 if os.path.exists(destination_path): os.remove(destination_path)
                 return False
-            
+
             total_length = response.getheader('content-length')
             if total_length:
                 total_length = int(total_length)
                 bytes_so_far = 0
-                
+
             shutil.copyfileobj(response, out_file) # Simpler copy, progress bar removed for brevity here
         print(f"Successfully downloaded {description}.")
         return True
@@ -115,7 +115,7 @@ def setup_lavalink_environment():
         download_file_with_progress(SPOTIFY_PLUGIN_URL, SPOTIFY_PLUGIN_JAR_PATH, SPOTIFY_PLUGIN_JAR_NAME)
     else:
         print(f"{SPOTIFY_PLUGIN_JAR_NAME} already exists. Skipping download.")
-        
+
     return True
 
 def find_java_executable():
@@ -123,7 +123,7 @@ def find_java_executable():
     if java_home:
         return os.path.join(java_home, 'bin', 'java')
     # Check system PATH if JAVA_HOME is not set
-    return 'java' 
+    return 'java'
 
 def launch_lavalink_process():
     if not setup_lavalink_environment():
@@ -133,7 +133,7 @@ def launch_lavalink_process():
     # so CONFIG_PATH = "lavalink/application.yml" should be correct.
     # os.path.abspath will make it absolute from the CWD of this script.
     abs_config_path = os.path.abspath(CONFIG_PATH)
-    
+
     java_executable = find_java_executable()
 
     java_command = [
@@ -147,13 +147,13 @@ def launch_lavalink_process():
     ]
 
     print(f"DEBUG: Attempting to run Java command: {' '.join(java_command)}")
-    
+
     # For Lavalink, it's better to run it with its working directory set to where the JAR is,
     # as it might look for other resources relative to itself.
     # However, since we explicitly set spring.config.location, this might be less critical.
     # Let's try running with CWD as project root first, as `start_lavalink.py` is there.
     # If issues persist, changing CWD to LAVALINK_DIR for Popen might be a next step.
-    
+
     try:
         process = subprocess.Popen(
             java_command,
@@ -176,5 +176,5 @@ if __name__ == "__main__":
     # but typically not for just launching Lavalink unless passing specific things to Java.
     # dotenv_path = os.path.join(os.path.dirname(__file__), '.env') # If .env is in same dir as script
     # load_dotenv(dotenv_path=dotenv_path, override=True)
-    
+
     launch_lavalink_process()

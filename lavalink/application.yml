@@ -21,13 +21,17 @@ plugins:
       spotify: true
       applemusic: false
       deezer: false
-      youtube: true # Let the dedicated youtube-source plugin handle YouTube for playback
+      youtube: false # Important: Let ytdlp source handle actual YouTube playback
+      ytdlp: true   # Enable yt-dlp source
       # Add other lavasrc sources here and set to false if not needed
-      # e.g., yandexmusic: false, flowerytts: false, vkmusic: false, tidal: false, qobuz: false, ytdlp: false
+      # e.g., yandexmusic: false, flowerytts: false, vkmusic: false, tidal: false, qobuz: false
     spotify:
       clientId: "76990848ec57447695e5a4e8920bcd8b"
       clientSecret: "7026c2f1601e469d9a3c70807bc067c1"
       countryCode: "US"
+    ytdlp: # Add this block if not present, can be empty to use defaults
+      # path: "/path/to/yt-dlp" # Only if yt-dlp is not in PATH
+      # searchLimit: 10
 
 # Default logging level is INFO, which is usually fine.
 # logging:

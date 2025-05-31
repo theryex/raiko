@@ -121,7 +121,7 @@ def start_lavalink():
 
     if os.path.exists(CONFIG_PATH) and not check_plugin_config(CONFIG_PATH):
          sys.exit("Please fix the configuration issues and try again.")
-    
+
     print(f"DEBUG: CONFIG_PATH is {CONFIG_PATH}") # ADD THIS LINE
     abs_config_path = os.path.abspath(CONFIG_PATH)
     print(f"DEBUG: abs_config_path is {abs_config_path}") # UPDATED THIS LINE
@@ -137,7 +137,7 @@ def start_lavalink():
     java_executable = "java"
     if platform.system() == "Windows":
         java_executable = "java.exe"
-    
+
     print(f"DEBUG: java_executable is {java_executable}") # ADD THIS LINE
 
     java_command = [
@@ -150,7 +150,7 @@ def start_lavalink():
         "-jar",
         JAR_PATH
     ]
-    
+
     print(f"DEBUG: Attempting to run Java command: {' '.join(java_command)}") # ENSURE THIS LINE IS PRESENT OR ADDED
 
     process = None
