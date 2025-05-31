@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import wavelink
-from wavelink.models import TrackEndReason
+from wavelink.enums import TrackEndReason
 import re
 import math
 import asyncio
