@@ -256,10 +256,10 @@ class MusicCog(commands.Cog): # Renamed class
                         await interaction.channel.send("Queue is full. Cannot add local track.", ephemeral=True)
                         return
                     player.queue.put(track_to_play)
-                    await interaction.channel.send(f"➕ Queued (local): **{track_to_play.extras.get('display_title', video_id)}** (Requested by: {interaction.user.mention})")
+                    await interaction.channel.send(f"➕ Queued (local): **{getattr(track_to_play.extras, 'display_title', video_id)}** (Requested by: {interaction.user.mention})")
                 else:
                     await player.play(track_to_play)
-                    await interaction.channel.send(f"🎶 Playing (local): **{track_to_play.extras.get('display_title', video_id)}** (Requested by: {interaction.user.mention})")
+                    await interaction.channel.send(f"🎶 Playing (local): **{getattr(track_to_play.extras, 'display_title', video_id)}** (Requested by: {interaction.user.mention})")
 
             except Exception as e:
                 logger.error(f"Error playing local file {abs_cached_filepath} with Lavalink: {e}", exc_info=True)
