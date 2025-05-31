@@ -220,6 +220,24 @@ class MusicCog(commands.Cog): # Renamed class
                 await interaction.channel.send(f"Download seemed to complete, but the output audio file could not be found.")
                 return
 
+            # Fetch YouTube Title
+            fetched_title = video_id # Default to video_id if title fetch fails
+            try:
+                title_cmd = [
+                    "yt-dlp", "--print", "title", "-s", # -s to skip download, --print title to output only title
+                    query # The original YouTube URL
+                ]
+                loop = asyncio.get_event_loop()
+                title_process_result = await loop.run_in_executor(None, lambda: subprocess.run(title_cmd, check=True, capture_output=True, text=True, encoding='utf-8'))
+                fetched_title = title_process_result.stdout.strip()
+                logger.info(f"Fetched title for {video_id}: {fetched_title}")
+            except subprocess.CalledProcessError as e_title:
+                logger.error(f"yt-dlp title fetch failed for {video_id}: {e_title.stderr}")
+                # Keep fetched_title as video_id (already defaulted)
+            except Exception as e_title_exec:
+                logger.error(f"Error executing yt-dlp for title fetch {video_id}: {e_title_exec}", exc_info=True)
+                # Keep fetched_title as video_id
+
             try:
                 tracks = await wavelink.Pool.fetch_tracks(f'{abs_cached_filepath}')
                 if not tracks:
@@ -227,17 +245,21 @@ class MusicCog(commands.Cog): # Renamed class
                     return
 
                 track_to_play = tracks[0] if isinstance(tracks, list) else tracks
-                track_to_play.extras = {'requester_id': interaction.user.id, 'requester_mention': interaction.user.mention, 'title': video_id}
+                track_to_play.extras = {
+                    'requester_id': interaction.user.id,
+                    'requester_mention': interaction.user.mention,
+                    'display_title': fetched_title # Use the fetched title here
+                }
 
                 if player.playing or player.paused:
                     if player.queue.count >= self.max_queue_size:
                         await interaction.channel.send("Queue is full. Cannot add local track.", ephemeral=True)
                         return
                     player.queue.put(track_to_play)
-                    await interaction.channel.send(f"➕ Queued (local): **{track_to_play.title or video_id}** (Requested by: {interaction.user.mention})")
+                    await interaction.channel.send(f"➕ Queued (local): **{track_to_play.extras.get('display_title', video_id)}** (Requested by: {interaction.user.mention})")
                 else:
                     await player.play(track_to_play)
-                    await interaction.channel.send(f"🎶 Playing (local): **{track_to_play.title or video_id}** (Requested by: {interaction.user.mention})")
+                    await interaction.channel.send(f"🎶 Playing (local): **{track_to_play.extras.get('display_title', video_id)}** (Requested by: {interaction.user.mention})")
 
             except Exception as e:
                 logger.error(f"Error playing local file {abs_cached_filepath} with Lavalink: {e}", exc_info=True)
