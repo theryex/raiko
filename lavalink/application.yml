@@ -12,7 +12,7 @@ lavalink:
       twitch: false
       vimeo: false
       http: true
-      local: false
+      local: true
     soundcloudSearchEnabled: true
 
 plugins:
@@ -22,7 +22,7 @@ plugins:
       applemusic: false
       deezer: false
       youtube: false # Important: Let ytdlp source handle actual YouTube playback
-      ytdlp: true   # Enable yt-dlp source
+      ytdlp: false   # Enable yt-dlp source
       # Add other lavasrc sources here and set to false if not needed
       # e.g., yandexmusic: false, flowerytts: false, vkmusic: false, tidal: false, qobuz: false
     spotify:
