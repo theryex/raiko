@@ -192,40 +192,32 @@ class MusicCog(commands.Cog): # Renamed class
             else:
                 await interaction.followup.send(f"Downloading '{query}'. This may take a moment...")
                 cmd = [
-                    "yt-dlp", "--extract-audio", "--audio-format", "opus", "--audio-quality", "0",
-                    "-o", os.path.join(MUSIC_CACHE_DIR, "%(id)s.%(ext)s"), # yt-dlp uses this template
-                    query
+                    "yt-dlp",
+                    "-x",  # Short for --extract-audio
+                    "--audio-format", "opus",
+                    "-o", os.path.join(MUSIC_CACHE_DIR, f"{video_id}.opus"), # Explicitly name the output file
+                    query  # The original YouTube URL
                 ]
                 try:
                     loop = asyncio.get_event_loop()
                     process_result = await loop.run_in_executor(None, lambda: subprocess.run(cmd, check=True, capture_output=True, text=True))
                     logger.info(f"yt-dlp download successful for {video_id}:\n{process_result.stdout}")
-
-                    if not os.path.exists(abs_cached_filepath): # Check if the .opus file specifically exists
-                        logger.warning(f"yt-dlp finished but expected .opus file {abs_cached_filepath} not found. Checking for other extensions.")
-                        found_files = [f for f in os.listdir(MUSIC_CACHE_DIR) if f.startswith(video_id)]
-                        if found_files:
-                            actual_filename = found_files[0]
-                            actual_cached_filepath = os.path.join(MUSIC_CACHE_DIR, actual_filename)
-                            if actual_filename != expected_filename: # Could be .webm etc.
-                                logger.info(f"Actual downloaded file is {actual_filename}. Using this path: {actual_cached_filepath}")
-                                abs_cached_filepath = os.path.abspath(actual_cached_filepath) # Update path to actual file
-                            # If actual_filename IS expected_filename, then it was found correctly (e.g. .opus)
-                        else:
-                            await interaction.channel.send(f"Download finished, but could not locate the output file for {video_id}. Please check logs.", ephemeral=True)
-                            return
+                    # If subprocess.run didn't raise an exception, we assume the file was created as specified.
+                    # The check for abs_cached_filepath existence will happen before wavelink.Pool.fetch_tracks
                 except subprocess.CalledProcessError as e:
                     logger.error(f"yt-dlp download failed for {video_id}. Return code: {e.returncode}\nStderr: {e.stderr}\nStdout: {e.stdout}")
-                    await interaction.channel.send(f"Failed to download YouTube video: `{e.stderr[:1800]}`", ephemeral=True)
+                    await interaction.channel.send(f"Failed to download YouTube video: `{e.stderr[:1800]}`")
                     return
                 except Exception as e_exec:
                     logger.error(f"Error executing yt-dlp for {video_id}: {e_exec}", exc_info=True)
-                    await interaction.channel.send(f"An error occurred while trying to download the video: {str(e_exec)[:1000]}.", ephemeral=True)
+                    await interaction.channel.send(f"An error occurred while trying to download the video: {str(e_exec)[:1000]}.")
                     return
 
             # Play Local File via Lavalink (after cache check or download)
+            # Simplified check: if the file isn't at the exact path after supposed success, then error.
             if not os.path.exists(abs_cached_filepath):
-                await interaction.channel.send(f"Error: Could not find audio file for {video_id} at '{abs_cached_filepath}' after download attempt.", ephemeral=True)
+                logger.error(f"yt-dlp claimed success, but output file {abs_cached_filepath} is missing.")
+                await interaction.channel.send(f"Download seemed to complete, but the output audio file could not be found.")
                 return
 
             try:
