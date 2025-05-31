@@ -2,7 +2,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import wavelink
-from wavelink.enums import TrackEndReason
 import re
 import math
 import asyncio
@@ -98,7 +97,7 @@ class MusicCog(commands.Cog): # Renamed class
         # If a track ended because it was stopped by /stop or /disconnect, player might be disconnected.
         # The player.stop() or player.disconnect() in those commands should handle cleanup.
 
-        if payload.reason == TrackEndReason.finished:
+        if payload.reason == wavelink.TrackEndReason.finished:
             if not player.queue.is_empty:
                 try:
                     next_track = player.queue.get()
@@ -114,7 +113,7 @@ class MusicCog(commands.Cog): # Renamed class
                      await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
                 self._schedule_inactivity_check(player.guild.id)
         
-        elif payload.reason == TrackEndReason.load_failed:
+        elif payload.reason == wavelink.TrackEndReason.load_failed:
             if hasattr(player, 'text_channel') and player.text_channel:
                 await player.text_channel.send(f"Failed to load track: **{payload.track.title if payload.track else 'Unknown Track'}**. Skipping to next if available.")
             if not player.queue.is_empty:
@@ -132,7 +131,7 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason == TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
+        elif payload.reason == wavelink.TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
             if player.queue.is_empty and player.connected: # If /skip made queue empty
                  if hasattr(player, 'text_channel') and player.text_channel:
                     await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
