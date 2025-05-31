@@ -419,7 +419,7 @@ class MusicCog(commands.Cog): # Renamed class
             current_title = getattr(player.current.extras, 'display_title', player.current.title or 'Unknown Title')
             embed.add_field(
                 name="▶️ Now Playing",
-                value=f"**[{current_title}]({player.current.uri or 'URL not available'})** ({format_duration(player.current.duration)})\nRequested by: {requester_mention}",
+                value=f"**[{current_title}]({player.current.uri or 'URL not available'})** ({format_duration(player.current.length)})\nRequested by: {requester_mention}",
                 inline=False
             )
         else:
@@ -435,7 +435,7 @@ class MusicCog(commands.Cog): # Renamed class
             for i, track in enumerate(list(player.queue)[:queue_display_limit], start=1):
                 track_requester_mention = getattr(track.extras, 'requester_mention', "N/A")
                 title_to_display = getattr(track.extras, 'display_title', track.title or 'Unknown Title')
-                duration = format_duration(track.duration)
+                duration = format_duration(track.length)
                 queue_text_list.append(f"`{i}.` **[{title_to_display}]({track.uri or 'URL not available'})** ({duration}) - Req: {track_requester_mention}")
             
             # Use description for a cleaner list if it's long
@@ -489,7 +489,7 @@ class MusicCog(commands.Cog): # Renamed class
             await interaction.followup.send("Playback is not paused, or nothing to resume.", ephemeral=True)
             return
 
-        await player.resume()
+        await player.pause(False)
         await interaction.followup.send("▶️ Playback resumed.")
 
     @app_commands.command(name="info", description="Shows information about the currently playing song.")
@@ -517,7 +517,7 @@ class MusicCog(commands.Cog): # Renamed class
             embed.set_thumbnail(url=current_track.thumb)
 
         embed.add_field(name="👤 Artist/Author", value=current_track.author or "Unknown Artist", inline=True)
-        embed.add_field(name="⏱️ Duration", value=format_duration(current_track.duration), inline=True)
+        embed.add_field(name="⏱️ Duration", value=format_duration(current_track.length), inline=True)
         
         requester_mention = getattr(current_track.extras, 'requester_mention', "Unknown User")
         embed.add_field(name="🙋 Requested by", value=requester_mention, inline=True)
