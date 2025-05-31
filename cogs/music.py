@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import wavelink
+from wavelink.enums import TrackEndReason, QueueMode
 import re
 import math
 import asyncio
@@ -97,7 +98,7 @@ class MusicCog(commands.Cog): # Renamed class
         # If a track ended because it was stopped by /stop or /disconnect, player might be disconnected.
         # The player.stop() or player.disconnect() in those commands should handle cleanup.
 
-        if payload.reason == wavelink.TrackEndReason.finished:
+        if payload.reason == TrackEndReason.finished:
             if not player.queue.is_empty:
                 try:
                     next_track = player.queue.get()
@@ -113,7 +114,7 @@ class MusicCog(commands.Cog): # Renamed class
                      await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
                 self._schedule_inactivity_check(player.guild.id)
         
-        elif payload.reason == wavelink.TrackEndReason.load_failed:
+        elif payload.reason == TrackEndReason.load_failed:
             if hasattr(player, 'text_channel') and player.text_channel:
                 await player.text_channel.send(f"Failed to load track: **{payload.track.title if payload.track else 'Unknown Track'}**. Skipping to next if available.")
             if not player.queue.is_empty:
@@ -131,7 +132,7 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason == wavelink.TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
+        elif payload.reason == TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
             if player.queue.is_empty and player.connected: # If /skip made queue empty
                  if hasattr(player, 'text_channel') and player.text_channel:
                     await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
@@ -195,8 +196,9 @@ class MusicCog(commands.Cog): # Renamed class
                     "yt-dlp",
                     "-x",  # Short for --extract-audio
                     "--audio-format", "opus",
-                    "-o", os.path.join(MUSIC_CACHE_DIR, f"{video_id}.opus"), # Explicitly name the output file
-                    query  # The original YouTube URL
+                    "--audio-quality", "0", # Add this for best VBR Opus
+                    "-o", os.path.join(MUSIC_CACHE_DIR, f"{video_id}.opus"),
+                    query
                 ]
                 try:
                     loop = asyncio.get_event_loop()
@@ -447,9 +449,9 @@ class MusicCog(commands.Cog): # Renamed class
         
         # Add queue mode status
         # Wavelink v3: QueueMode.normal, QueueMode.track, QueueMode.queue
-        if player.queue.mode == wavelink.QueueMode.track:
+        if player.queue.mode == QueueMode.track:
             embed.add_field(name="🔁 Loop Mode", value="Looping Current Track", inline=True)
-        elif player.queue.mode == wavelink.QueueMode.queue:
+        elif player.queue.mode == QueueMode.queue:
             embed.add_field(name="🔁 Loop Mode", value="Looping Entire Queue", inline=True)
         # else QueueMode.normal, no specific message needed or "Looping Disabled"
 
@@ -528,9 +530,9 @@ class MusicCog(commands.Cog): # Renamed class
         embed.add_field(name="🎵 Source", value=current_track.source.replace('_', ' ').title() if current_track.source else "Unknown Source", inline=True)
 
         # Loop status
-        if player.queue.mode == wavelink.QueueMode.track:
+        if player.queue.mode == QueueMode.track:
             embed.add_field(name="🔁 Looping", value="Current Track", inline=True)
-        elif player.queue.mode == wavelink.QueueMode.queue:
+        elif player.queue.mode == QueueMode.queue:
             embed.add_field(name="🔁 Looping", value="Entire Queue", inline=True)
         else: # wavelink.QueueMode.normal
             embed.add_field(name="🔁 Looping", value="Disabled", inline=True)
@@ -570,11 +572,11 @@ class MusicCog(commands.Cog): # Renamed class
         
         player.queue.mode = mode # mode is already a wavelink.QueueMode enum instance due to type hint
         
-        if mode == wavelink.QueueMode.track: # Wavelink v3: loop current track
+        if mode == QueueMode.track: # Wavelink v3: loop current track
             await interaction.followup.send("Looping current track.")
-        elif mode == wavelink.QueueMode.queue: # Wavelink v3: loop entire queue
+        elif mode == QueueMode.queue: # Wavelink v3: loop entire queue
             await interaction.followup.send("Looping entire queue.")
-        elif mode == wavelink.QueueMode.normal: # Wavelink v3: disable looping
+        elif mode == QueueMode.normal: # Wavelink v3: disable looping
             await interaction.followup.send("Looping disabled.")
         else:
             # This case should ideally not be reached if mode is correctly typed to the enum
