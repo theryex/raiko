@@ -6,12 +6,21 @@ import re
 import math
 import asyncio
 import os
+import subprocess # Added
 from typing import Optional, Union
 import logging # Added for logger
 
 logger = logging.getLogger(__name__) # Added for logger
 
 URL_REGEX = re.compile(r'https?://(?:www\.)?.+')
+MUSIC_CACHE_DIR = "./music_cache"
+YOUTUBE_VIDEO_ID_REGEX = re.compile(r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|music\.youtube\.com\/watch\?v=|youtube\.com\/shorts\/)([^"&?/\s]{11})')
+
+def get_youtube_video_id(url: str) -> Optional[str]:
+    match = YOUTUBE_VIDEO_ID_REGEX.search(url)
+    if match:
+        return match.group(1)
+    return None
 
 def format_duration(milliseconds: Optional[Union[int, float]]) -> str:
     if milliseconds is None:
@@ -35,6 +44,7 @@ class MusicCog(commands.Cog): # Renamed class
         self.default_volume = int(os.getenv('DEFAULT_VOLUME', 100))
         self.max_queue_size = int(os.getenv('MAX_QUEUE_SIZE', 1000))
         self.max_playlist_size = int(os.getenv('MAX_PLAYLIST_SIZE', 100))
+        os.makedirs(MUSIC_CACHE_DIR, exist_ok=True)
 
     async def ensure_voice_client(self, interaction: discord.Interaction) -> Optional[wavelink.Player]:
         if not interaction.guild: 
@@ -163,108 +173,189 @@ class MusicCog(commands.Cog): # Renamed class
             
         await interaction.response.defer()
 
-        try:
-            search_result = await wavelink.Playable.search(query)
+        video_id = get_youtube_video_id(query)
+
+        if video_id:
+            # This is a YouTube URL, implement downloading & local play logic here
+            # For now, just send a message indicating it's a YT video
+            # We will fill in the download and play logic in subsequent steps.
             
-            # Primary check for Wavelink v3, which returns None or empty list if no tracks are found.
-            if not search_result: 
-                await interaction.followup.send("No results found for your query.", ephemeral=True)
+            # Construct expected filepath
+            # yt-dlp with --audio-format opus and -o "./music_cache/%(id)s.%(ext)s"
+            # will likely produce a .opus file.
+            expected_filename = f"{video_id}.opus"
+            cached_filepath = os.path.join(MUSIC_CACHE_DIR, expected_filename)
+            abs_cached_filepath = os.path.abspath(cached_filepath)
+
+            if os.path.exists(abs_cached_filepath):
+                await interaction.followup.send(f"Found '{expected_filename}' in cache. Attempting to play...")
+            else:
+                await interaction.followup.send(f"Downloading '{query}'. This may take a moment...")
+                cmd = [
+                    "yt-dlp", "--extract-audio", "--audio-format", "opus", "--audio-quality", "0",
+                    "-o", os.path.join(MUSIC_CACHE_DIR, "%(id)s.%(ext)s"), # yt-dlp uses this template
+                    query
+                ]
+                try:
+                    loop = asyncio.get_event_loop()
+                    process_result = await loop.run_in_executor(None, lambda: subprocess.run(cmd, check=True, capture_output=True, text=True))
+                    logger.info(f"yt-dlp download successful for {video_id}:\n{process_result.stdout}")
+
+                    if not os.path.exists(abs_cached_filepath): # Check if the .opus file specifically exists
+                        logger.warning(f"yt-dlp finished but expected .opus file {abs_cached_filepath} not found. Checking for other extensions.")
+                        found_files = [f for f in os.listdir(MUSIC_CACHE_DIR) if f.startswith(video_id)]
+                        if found_files:
+                            actual_filename = found_files[0]
+                            actual_cached_filepath = os.path.join(MUSIC_CACHE_DIR, actual_filename)
+                            if actual_filename != expected_filename: # Could be .webm etc.
+                                logger.info(f"Actual downloaded file is {actual_filename}. Using this path: {actual_cached_filepath}")
+                                abs_cached_filepath = os.path.abspath(actual_cached_filepath) # Update path to actual file
+                            # If actual_filename IS expected_filename, then it was found correctly (e.g. .opus)
+                        else:
+                            await interaction.channel.send(f"Download finished, but could not locate the output file for {video_id}. Please check logs.", ephemeral=True)
+                            return
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"yt-dlp download failed for {video_id}. Return code: {e.returncode}\nStderr: {e.stderr}\nStdout: {e.stdout}")
+                    await interaction.channel.send(f"Failed to download YouTube video: `{e.stderr[:1800]}`", ephemeral=True)
+                    return
+                except Exception as e_exec:
+                    logger.error(f"Error executing yt-dlp for {video_id}: {e_exec}", exc_info=True)
+                    await interaction.channel.send(f"An error occurred while trying to download the video: {str(e_exec)[:1000]}.", ephemeral=True)
+                    return
+
+            # Play Local File via Lavalink (after cache check or download)
+            if not os.path.exists(abs_cached_filepath):
+                await interaction.channel.send(f"Error: Could not find audio file for {video_id} at '{abs_cached_filepath}' after download attempt.", ephemeral=True)
                 return
-            
-            # Ensure player.text_channel is set for later messages by on_wavelink_track_end
-            if not hasattr(player, 'text_channel') or not player.text_channel:
-                if interaction.channel: # Check if interaction.channel exists
-                    player.text_channel = interaction.channel
-                # else: Fallback not strictly needed here as command context should have channel
 
-            requester_id = interaction.user.id 
-            requester_mention = interaction.user.mention 
-
-            if isinstance(search_result, wavelink.Playlist):
-                playlist = search_result
-                # Limit how many tracks we take from the playlist initially
-                tracks_to_process = playlist.tracks[:self.max_playlist_size] 
-                
-                if not tracks_to_process:
-                    await interaction.followup.send(f"Playlist **{playlist.name}** is empty or no usable tracks found (check Lavalink logs for details).", ephemeral=True)
-                    return
-                
-                added_count = 0
-                first_track_played_info = None
-                
-                # If nothing is playing, play the first track immediately
-                if not player.playing and not player.paused:
-                    if tracks_to_process: 
-                        first_track = tracks_to_process.pop(0) # Remove from list to process
-                        first_track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
-                        await player.play(first_track)
-                        first_track_played_info = f"🎶 Playing: **{first_track.title}** (from playlist **{playlist.name}** requested by {requester_mention})"
-                
-                # Add remaining tracks to the queue
-                for track in tracks_to_process:
-                    if player.queue.count >= self.max_queue_size:
-                        if player.text_channel: 
-                            await player.text_channel.send(f"Queue is full ({self.max_queue_size} tracks). Not all songs from **{playlist.name}** were added.", ephemeral=True)
-                        break
-                    track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
-                    player.queue.put(track)
-                    added_count += 1
-                
-                response_message = ""
-                if first_track_played_info:
-                    response_message = first_track_played_info
-                    if added_count > 0:
-                        response_message += f"\n➕ Queued an additional {added_count} song(s) from the playlist."
-                elif added_count > 0:
-                    response_message = f"➕ Queued {added_count} song(s) from playlist **{playlist.name}** (Requested by: {requester_mention})."
-                else: # No track played, no tracks queued
-                    response_message = f"Could not add songs from **{playlist.name}**. Player might be busy and queue full, or playlist limit reached/empty."
-
-                await interaction.followup.send(response_message)
-                
-                # Notify if playlist was truncated due to bot's own MAX_PLAYLIST_SIZE limit
-                if len(playlist.tracks) > self.max_playlist_size and added_count == (self.max_playlist_size - (1 if first_track_played_info else 0)) : 
-                     if player.text_channel: 
-                        await player.text_channel.send(f"ℹ️ Note: Playlist **{playlist.name}** was truncated to the first {self.max_playlist_size} songs due to bot configuration.", ephemeral=True)
-
-
-            else: # Single track or search result (list of Playable)
-                # If search_result is a list, take the first item. Otherwise, it's a single Playable.
-                single_track = search_result[0] if isinstance(search_result, list) else search_result
-                
-                # This check might be redundant if wavelink.Playable.search always returns Playable or list of Playable
-                # but kept for safety.
-                if not isinstance(single_track, wavelink.Playable): 
-                    await interaction.followup.send("Could not process the search result into a playable track.", ephemeral=True)
+            try:
+                tracks = await wavelink.Pool.fetch_tracks(f'{abs_cached_filepath}')
+                if not tracks:
+                    await interaction.channel.send("Could not load the downloaded local file via Lavalink. The file might be corrupted or an unsupported format for Lavalink's local source.", ephemeral=True)
                     return
 
-                single_track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
+                track_to_play = tracks[0] if isinstance(tracks, list) else tracks
+                track_to_play.extras = {'requester_id': interaction.user.id, 'requester_mention': interaction.user.mention, 'title': video_id}
 
                 if player.playing or player.paused:
                     if player.queue.count >= self.max_queue_size:
-                        await interaction.followup.send("Queue is full. Cannot add track.", ephemeral=True)
+                        await interaction.channel.send("Queue is full. Cannot add local track.", ephemeral=True)
                         return
-                    player.queue.put(single_track)
-                    await interaction.followup.send(f"➕ Queued: **{single_track.title}** (Requested by: {requester_mention})")
+                    player.queue.put(track_to_play)
+                    await interaction.channel.send(f"➕ Queued (local): **{track_to_play.title or video_id}** (Requested by: {interaction.user.mention})")
                 else:
-                    await player.play(single_track)
-                    await interaction.followup.send(f"🎶 Playing: **{single_track.title}** (Requested by: {requester_mention})")
+                    await player.play(track_to_play)
+                    await interaction.channel.send(f"🎶 Playing (local): **{track_to_play.title or video_id}** (Requested by: {interaction.user.mention})")
 
-        # Removed specific NoTracksError as it's handled by `if not search_result:`
-        except wavelink.exceptions.LavalinkLoadException as e:
-            # Log the error for server-side diagnosis
-            # Assuming logger is defined at the top of the file:
-            # import logging
-            # logger = logging.getLogger(__name__)
-            # If not, you'd need to add it or use print for temporary debugging.
-            # For now, let's assume a logger object `logger` exists as per previous context.
-            logger.error(f"LavalinkLoadException in /play. Error string: {e}", exc_info=True)
-            user_friendly_error = getattr(e, 'error', str(e)) # Use e.error if available, else str(e)
-            await interaction.followup.send(f"Lavalink error: {user_friendly_error}. This might be due to restrictions on the track/playlist or a Lavalink server issue. Please check the track if it's valid and playable.", ephemeral=True)
-        except Exception as e:
-            # Log the error for server-side diagnosis
-            # logger.exception(f"Unexpected error in /play command: {e}")
-            await interaction.followup.send(f"An unexpected error occurred while processing your request. Please try again later. Details: {str(e)}", ephemeral=True)
+            except Exception as e:
+                logger.error(f"Error playing local file {abs_cached_filepath} with Lavalink: {e}", exc_info=True)
+                await interaction.channel.send(f"Error playing local file via Lavalink: {str(e)[:1000]}", ephemeral=True)
+            return # Ensure we return after handling a YouTube video
+
+        else: # Not a YouTube video URL, proceed with existing Lavalink search logic
+            try:
+                search_result = await wavelink.Playable.search(query)
+
+                # Primary check for Wavelink v3, which returns None or empty list if no tracks are found.
+                if not search_result:
+                    await interaction.followup.send("No results found for your query.", ephemeral=True)
+                    return
+
+                # Ensure player.text_channel is set for later messages by on_wavelink_track_end
+                if not hasattr(player, 'text_channel') or not player.text_channel:
+                    if interaction.channel: # Check if interaction.channel exists
+                        player.text_channel = interaction.channel
+                    # else: Fallback not strictly needed here as command context should have channel
+
+                requester_id = interaction.user.id
+                requester_mention = interaction.user.mention
+
+                if isinstance(search_result, wavelink.Playlist):
+                    playlist = search_result
+                    # Limit how many tracks we take from the playlist initially
+                    tracks_to_process = playlist.tracks[:self.max_playlist_size]
+
+                    if not tracks_to_process:
+                        await interaction.followup.send(f"Playlist **{playlist.name}** is empty or no usable tracks found (check Lavalink logs for details).", ephemeral=True)
+                        return
+
+                    added_count = 0
+                    first_track_played_info = None
+
+                    # If nothing is playing, play the first track immediately
+                    if not player.playing and not player.paused:
+                        if tracks_to_process:
+                            first_track = tracks_to_process.pop(0) # Remove from list to process
+                            first_track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
+                            await player.play(first_track)
+                            first_track_played_info = f"🎶 Playing: **{first_track.title}** (from playlist **{playlist.name}** requested by {requester_mention})"
+
+                    # Add remaining tracks to the queue
+                    for track in tracks_to_process:
+                        if player.queue.count >= self.max_queue_size:
+                            if player.text_channel:
+                                await player.text_channel.send(f"Queue is full ({self.max_queue_size} tracks). Not all songs from **{playlist.name}** were added.", ephemeral=True)
+                            break
+                        track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
+                        player.queue.put(track)
+                        added_count += 1
+
+                    response_message = ""
+                    if first_track_played_info:
+                        response_message = first_track_played_info
+                        if added_count > 0:
+                            response_message += f"\n➕ Queued an additional {added_count} song(s) from the playlist."
+                    elif added_count > 0:
+                        response_message = f"➕ Queued {added_count} song(s) from playlist **{playlist.name}** (Requested by: {requester_mention})."
+                    else: # No track played, no tracks queued
+                        response_message = f"Could not add songs from **{playlist.name}**. Player might be busy and queue full, or playlist limit reached/empty."
+
+                    await interaction.followup.send(response_message)
+
+                    # Notify if playlist was truncated due to bot's own MAX_PLAYLIST_SIZE limit
+                    if len(playlist.tracks) > self.max_playlist_size and added_count == (self.max_playlist_size - (1 if first_track_played_info else 0)) :
+                         if player.text_channel:
+                            await player.text_channel.send(f"ℹ️ Note: Playlist **{playlist.name}** was truncated to the first {self.max_playlist_size} songs due to bot configuration.", ephemeral=True)
+
+
+                else: # Single track or search result (list of Playable)
+                    # If search_result is a list, take the first item. Otherwise, it's a single Playable.
+                    single_track = search_result[0] if isinstance(search_result, list) else search_result
+
+                    # This check might be redundant if wavelink.Playable.search always returns Playable or list of Playable
+                    # but kept for safety.
+                    if not isinstance(single_track, wavelink.Playable):
+                        await interaction.followup.send("Could not process the search result into a playable track.", ephemeral=True)
+                        return
+
+                    single_track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
+
+                    if player.playing or player.paused:
+                        if player.queue.count >= self.max_queue_size:
+                            await interaction.followup.send("Queue is full. Cannot add track.", ephemeral=True)
+                            return
+                        player.queue.put(single_track)
+                        await interaction.followup.send(f"➕ Queued: **{single_track.title}** (Requested by: {requester_mention})")
+                    else:
+                        await player.play(single_track)
+                        await interaction.followup.send(f"🎶 Playing: **{single_track.title}** (Requested by: {requester_mention})")
+
+            # Removed specific NoTracksError as it's handled by `if not search_result:`
+            except wavelink.exceptions.LavalinkLoadException as e:
+                # Log the error for server-side diagnosis
+                # Assuming logger is defined at the top of the file:
+                # import logging
+                # logger = logging.getLogger(__name__)
+                # If not, you'd need to add it or use print for temporary debugging.
+                # For now, let's assume a logger object `logger` exists as per previous context.
+                logger.error(f"LavalinkLoadException in /play (non-YouTube). Error string: {e}", exc_info=True) # Differentiate log
+                user_friendly_error = getattr(e, 'error', str(e)) # Use e.error if available, else str(e)
+                await interaction.followup.send(f"Lavalink error: {user_friendly_error}. This might be due to restrictions on the track/playlist or a Lavalink server issue. Please check the track if it's valid and playable.", ephemeral=True)
+            except Exception as e:
+                # Log the error for server-side diagnosis
+                # logger.exception(f"Unexpected error in /play command: {e}")
+                logger.error(f"Unexpected error in /play (non-YouTube): {e}", exc_info=True) # Differentiate log
+                await interaction.followup.send(f"An unexpected error occurred: {str(e)}", ephemeral=True)
 
     @app_commands.command(name="disconnect", description="Disconnects the bot from the voice channel.")
     async def disconnect(self, interaction: discord.Interaction):
