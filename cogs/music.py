@@ -223,7 +223,7 @@ class MusicCog(commands.Cog): # Renamed class
             try:
                 tracks = await wavelink.Pool.fetch_tracks(f'{abs_cached_filepath}')
                 if not tracks:
-                    await interaction.channel.send("Could not load the downloaded local file via Lavalink. The file might be corrupted or an unsupported format for Lavalink's local source.", ephemeral=True)
+                    await interaction.channel.send("Could not load the downloaded local file via Lavalink. The file might be corrupted or an unsupported format for Lavalink's local source.")
                     return
 
                 track_to_play = tracks[0] if isinstance(tracks, list) else tracks
@@ -241,7 +241,7 @@ class MusicCog(commands.Cog): # Renamed class
 
             except Exception as e:
                 logger.error(f"Error playing local file {abs_cached_filepath} with Lavalink: {e}", exc_info=True)
-                await interaction.channel.send(f"Error playing local file via Lavalink: {str(e)[:1000]}", ephemeral=True)
+                await interaction.channel.send(f"Error playing local file via Lavalink: {str(e)[:1000]}")
             return # Ensure we return after handling a YouTube video
 
         else: # Not a YouTube video URL, proceed with existing Lavalink search logic
