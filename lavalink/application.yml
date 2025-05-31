@@ -30,7 +30,7 @@ plugins:
       clientSecret: "7026c2f1601e469d9a3c70807bc067c1"
       countryCode: "US"
     ytdlp: # Add this block if not present, can be empty to use defaults
-      # path: "/path/to/yt-dlp" # Only if yt-dlp is not in PATH
+      path: "/home/floppa/raiko/raiko/bin/yt-dlp" # Only if yt-dlp is not in PATH
       # searchLimit: 10
 
 # Default logging level is INFO, which is usually fine.
