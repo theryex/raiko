@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 import wavelink
+from wavelink.models import TrackEndReason
 import re
 import math
 import asyncio
@@ -97,7 +98,7 @@ class MusicCog(commands.Cog): # Renamed class
         # If a track ended because it was stopped by /stop or /disconnect, player might be disconnected.
         # The player.stop() or player.disconnect() in those commands should handle cleanup.
 
-        if payload.reason == wavelink.TrackEndReason.finished:
+        if payload.reason == TrackEndReason.finished:
             if not player.queue.is_empty:
                 try:
                     next_track = player.queue.get()
@@ -113,7 +114,7 @@ class MusicCog(commands.Cog): # Renamed class
                      await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
                 self._schedule_inactivity_check(player.guild.id)
         
-        elif payload.reason == wavelink.TrackEndReason.load_failed:
+        elif payload.reason == TrackEndReason.load_failed:
             if hasattr(player, 'text_channel') and player.text_channel:
                 await player.text_channel.send(f"Failed to load track: **{payload.track.title if payload.track else 'Unknown Track'}**. Skipping to next if available.")
             if not player.queue.is_empty:
@@ -131,7 +132,7 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason == wavelink.TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
+        elif payload.reason == TrackEndReason.stopped: # Track was stopped by a command like /stop or /skip
             if player.queue.is_empty and player.connected: # If /skip made queue empty
                  if hasattr(player, 'text_channel') and player.text_channel:
                     await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
@@ -415,10 +416,11 @@ class MusicCog(commands.Cog): # Renamed class
         embed = discord.Embed(title="🎵 Music Queue 🎵", color=discord.Color.og_blurple()) # Changed color
         
         if player.current:
-            requester_mention = player.current.extras.get('requester_mention', "N/A")
+            requester_mention = getattr(player.current.extras, 'requester_mention', "N/A")
+            current_title = getattr(player.current.extras, 'display_title', player.current.title or 'Unknown Title')
             embed.add_field(
                 name="▶️ Now Playing",
-                value=f"**[{player.current.title}]({player.current.uri or 'URL not available'})** ({format_duration(player.current.duration)})\nRequested by: {requester_mention}",
+                value=f"**[{current_title}]({player.current.uri or 'URL not available'})** ({format_duration(player.current.duration)})\nRequested by: {requester_mention}",
                 inline=False
             )
         else:
@@ -432,9 +434,10 @@ class MusicCog(commands.Cog): # Renamed class
             queue_text_list = []
             # Iterate through a copy for safety if queue can be modified elsewhere concurrently
             for i, track in enumerate(list(player.queue)[:queue_display_limit], start=1):
-                track_requester_mention = track.extras.get('requester_mention', "N/A")
+                track_requester_mention = getattr(track.extras, 'requester_mention', "N/A")
+                title_to_display = getattr(track.extras, 'display_title', track.title or 'Unknown Title')
                 duration = format_duration(track.duration)
-                queue_text_list.append(f"`{i}.` **[{track.title}]({track.uri or 'URL not available'})** ({duration}) - Req: {track_requester_mention}")
+                queue_text_list.append(f"`{i}.` **[{title_to_display}]({track.uri or 'URL not available'})** ({duration}) - Req: {track_requester_mention}")
             
             # Use description for a cleaner list if it's long
             embed.description = "\n".join(queue_text_list) if queue_text_list else "The queue is empty."
@@ -444,8 +447,13 @@ class MusicCog(commands.Cog): # Renamed class
                 embed.set_footer(text=f"And {len(player.queue) - queue_display_limit} more track(s)...")
         
         # Add queue mode status
-        if player.queue.mode != wavelink.QueueMode.normal:
-             embed.add_field(name="🔁 Loop Mode", value=f"Current mode: **{player.queue.mode.name.replace('_', ' ').title()}**", inline=True)
+        # Wavelink v3: QueueMode.normal, QueueMode.track, QueueMode.queue
+        if player.queue.mode == wavelink.QueueMode.track:
+            embed.add_field(name="🔁 Loop Mode", value="Looping Current Track", inline=True)
+        elif player.queue.mode == wavelink.QueueMode.queue:
+            embed.add_field(name="🔁 Loop Mode", value="Looping Entire Queue", inline=True)
+        # else QueueMode.normal, no specific message needed or "Looping Disabled"
+
         embed.add_field(name="🔢 Queue Length", value=str(player.queue.count), inline=True)
 
 
@@ -467,7 +475,7 @@ class MusicCog(commands.Cog): # Renamed class
             await interaction.followup.send("Playback is already paused.", ephemeral=True)
             return
 
-        await player.pause()
+        await player.pause(True)
         await interaction.followup.send("⏸️ Playback paused.")
 
     @app_commands.command(name="resume", description="Resumes the currently paused track.")
@@ -501,7 +509,8 @@ class MusicCog(commands.Cog): # Renamed class
         embed = discord.Embed(title="💿 Song Information", color=discord.Color.green()) # Changed color
         
         # Main track details
-        embed.description=f"**[{current_track.title}]({current_track.uri or 'URL not available'})**"
+        title_to_display = getattr(current_track.extras, 'display_title', current_track.title or "Unknown Title")
+        embed.description=f"**[{title_to_display}]({current_track.uri or 'URL not available'})**"
         # Thumbnail
         if current_track.artwork_url: # Wavelink 3+ uses artwork_url
             embed.set_thumbnail(url=current_track.artwork_url)
@@ -511,13 +520,19 @@ class MusicCog(commands.Cog): # Renamed class
         embed.add_field(name="👤 Artist/Author", value=current_track.author or "Unknown Artist", inline=True)
         embed.add_field(name="⏱️ Duration", value=format_duration(current_track.duration), inline=True)
         
-        requester_mention = current_track.extras.get('requester_mention', "Unknown User")
+        requester_mention = getattr(current_track.extras, 'requester_mention', "Unknown User")
         embed.add_field(name="🙋 Requested by", value=requester_mention, inline=True)
 
         embed.add_field(name="🎵 Source", value=current_track.source.replace('_', ' ').title() if current_track.source else "Unknown Source", inline=True)
-        # Check current track loop status specifically if QueueMode.loop is active for the current track
-        is_track_looping = "Yes" if player.queue.mode == wavelink.QueueMode.loop and player.current == current_track else "No"
-        embed.add_field(name="🔁 Looping (Track)", value=is_track_looping, inline=True)
+
+        # Loop status
+        if player.queue.mode == wavelink.QueueMode.track:
+            embed.add_field(name="🔁 Looping", value="Current Track", inline=True)
+        elif player.queue.mode == wavelink.QueueMode.queue:
+            embed.add_field(name="🔁 Looping", value="Entire Queue", inline=True)
+        else: # wavelink.QueueMode.normal
+            embed.add_field(name="🔁 Looping", value="Disabled", inline=True)
+
         embed.add_field(name="🔊 Volume", value=f"{player.volume}%", inline=True)
         
         # Queue specific info if available
@@ -525,10 +540,6 @@ class MusicCog(commands.Cog): # Renamed class
             # For current track, its "position" is that it's playing.
             embed.add_field(name="📊 Queue Position", value=f"Currently Playing", inline=True)
         
-        # Add a field for overall queue loop status if it's loop_all
-        if player.queue.mode == wavelink.QueueMode.loop_all:
-            embed.add_field(name="🔁 Looping (Queue)", value="Yes (Loop All)", inline=True)
-
         embed.add_field(name="ℹ️ Track ID (Debug)", value=f"`{current_track.identifier}`", inline=False)
         
         thumbnail_url = None
@@ -568,13 +579,13 @@ class MusicCog(commands.Cog): # Renamed class
 
         await interaction.response.defer()
         
-        player.queue.mode = mode
+        player.queue.mode = mode # mode is already a wavelink.QueueMode enum instance due to type hint
         
-        if mode == wavelink.QueueMode.loop:
+        if mode == wavelink.QueueMode.track: # Wavelink v3: loop current track
             await interaction.followup.send("Looping current track.")
-        elif mode == wavelink.QueueMode.loop_all:
+        elif mode == wavelink.QueueMode.queue: # Wavelink v3: loop entire queue
             await interaction.followup.send("Looping entire queue.")
-        elif mode == wavelink.QueueMode.normal:
+        elif mode == wavelink.QueueMode.normal: # Wavelink v3: disable looping
             await interaction.followup.send("Looping disabled.")
         else:
             # This case should ideally not be reached if mode is correctly typed to the enum
