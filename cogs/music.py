@@ -505,21 +505,24 @@ class MusicCog(commands.Cog): # Renamed class
             await interaction.followup.send("Nothing is currently playing.", ephemeral=True)
             return
 
-        embed = discord.Embed(title="💿 Song Information", color=discord.Color.green()) # Changed color
+        embed = discord.Embed(title="💿 Song Information", color=discord.Color.green())
         
-        # Main track details
         title_to_display = getattr(current_track.extras, 'display_title', current_track.title or "Unknown Title")
         embed.description=f"**[{title_to_display}]({current_track.uri or 'URL not available'})**"
-        # Thumbnail
-        if current_track.artwork_url: # Wavelink 3+ uses artwork_url
-            embed.set_thumbnail(url=current_track.artwork_url)
-        elif hasattr(current_track, 'thumb') and current_track.thumb: # Fallback for older or other attributes
-            embed.set_thumbnail(url=current_track.thumb)
+
+        thumbnail_url = None
+        if hasattr(current_track, 'artwork') and current_track.artwork:
+            thumbnail_url = current_track.artwork
+        elif hasattr(current_track, 'thumb') and current_track.thumb: # youtube_dl often provides 'thumb' for Playable objects from search
+            thumbnail_url = current_track.thumb
+
+        if thumbnail_url:
+            embed.set_thumbnail(url=thumbnail_url)
 
         embed.add_field(name="👤 Artist/Author", value=current_track.author or "Unknown Artist", inline=True)
-        embed.add_field(name="⏱️ Duration", value=format_duration(current_track.length), inline=True)
+        embed.add_field(name="⏱️ Duration", value=format_duration(current_track.length), inline=True) # Verified .length
         
-        requester_mention = getattr(current_track.extras, 'requester_mention', "Unknown User")
+        requester_mention = getattr(current_track.extras, 'requester_mention', "Unknown User") # Verified getattr
         embed.add_field(name="🙋 Requested by", value=requester_mention, inline=True)
 
         embed.add_field(name="🎵 Source", value=current_track.source.replace('_', ' ').title() if current_track.source else "Unknown Source", inline=True)
@@ -534,23 +537,10 @@ class MusicCog(commands.Cog): # Renamed class
 
         embed.add_field(name="🔊 Volume", value=f"{player.volume}%", inline=True)
         
-        # Queue specific info if available
-        if player.queue and player.current: # Redundant check for player.current, but safe
-            # For current track, its "position" is that it's playing.
+        if player.queue and player.current:
             embed.add_field(name="📊 Queue Position", value=f"Currently Playing", inline=True)
         
         embed.add_field(name="ℹ️ Track ID (Debug)", value=f"`{current_track.identifier}`", inline=False)
-        
-        thumbnail_url = None
-        if hasattr(current_track, 'artwork_url') and current_track.artwork_url: # For new wavelink
-             thumbnail_url = current_track.artwork_url
-        elif hasattr(current_track, 'artwork') and current_track.artwork: # older wavelink or other attribute
-             thumbnail_url = current_track.artwork
-        elif hasattr(current_track, 'thumb') and current_track.thumb: # some sources use thumb
-            thumbnail_url = current_track.thumb
-        
-        if thumbnail_url:
-            embed.set_thumbnail(url=thumbnail_url)
 
         await interaction.followup.send(embed=embed)
 
