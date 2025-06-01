@@ -132,19 +132,27 @@ class MusicCog(commands.Cog): # Renamed class
                  self._schedule_inactivity_check(player.guild.id)
 
         elif payload.reason == 'stopped':
-            logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue empty: {player.queue.is_empty}, Queue size: {len(list(player.queue))}") # Use len(list(player.queue)) for accurate size at this moment
+            # ADD THIS LINE FIRST in the block:
+            logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Event triggered. Current queue size: {len(list(player.queue))}, Is empty: {player.queue.is_empty}")
+
             if not player.queue.is_empty:
-                # Add another log to see what's at the front of the queue
-                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - About to get track from queue. Current front title: '{getattr(player.queue[0].extras, 'display_title', player.queue[0].title if player.queue and hasattr(player.queue[0], 'title') else 'N/A')}'")
+                # ADD THIS LINE (ensure player.queue[0] access is safe):
+                current_front_track_info = "N/A"
+                if player.queue: # Check if queue is not empty before accessing player.queue[0]
+                    current_front_track = player.queue[0]
+                    current_front_track_info = getattr(current_front_track.extras, 'display_title', current_front_track.title if hasattr(current_front_track, 'title') else 'N/A')
+                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue is not empty. About to get track. Current front title: '{current_front_track_info}'")
                 try:
                     next_track = player.queue.get()
                     # ADD THIS LINE:
                     logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Got next_track. Title: '{getattr(next_track.extras, 'display_title', next_track.title if next_track and hasattr(next_track, 'title') else 'N/A')}', URI: '{getattr(next_track, 'uri', 'N/A')}'")
+
                     await player.play(next_track)
-                    # Optional: Send "Now playing" message, consistent with 'finished' reason.
-                    # Consider if this is desirable after a /skip or /stop that results in immediate next play.
-                    # For now, let's keep it consistent with 'finished'.
-                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'): # Check if next_track is Playable
+                    # ADD THIS LINE:
+                    logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Called player.play(next_track).")
+
+                    # (existing message sending logic for "Now playing")
+                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'):
                         display_title = getattr(next_track.extras, 'display_title', next_track.title or "Unknown Title")
                         requester_mention = getattr(next_track.extras, 'requester_mention', "Unknown User")
                         await player.text_channel.send(f"🎶 Now playing: **{display_title}** (Requested by: {requester_mention})")
@@ -153,10 +161,11 @@ class MusicCog(commands.Cog): # Renamed class
                     if hasattr(player, 'text_channel') and player.text_channel:
                         await player.text_channel.send(f"Error playing next track: {str(e)}. Please check logs.")
             else:
-                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue is empty, scheduling inactivity check.")
+                # ADD THIS LINE:
+                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue IS empty after stop, scheduling inactivity check.")
                 if hasattr(player, 'text_channel') and player.text_channel:
                      await player.text_channel.send("Playback stopped and queue is empty. Bot will disconnect if inactive.")
-                 self._schedule_inactivity_check(player.guild.id)
+                self._schedule_inactivity_check(player.guild.id)
             # If /stop was used, player will likely be disconnected by the command itself.
             # If /skip was used and queue is not empty, track_end for skip should trigger next play (already handled by this block).
 
