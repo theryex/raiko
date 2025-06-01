@@ -102,10 +102,12 @@ class MusicCog(commands.Cog): # Renamed class
                 try:
                     next_track = player.queue.get()
                     await player.play(next_track)
-                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'):
-                        requester_mention = next_track.extras.get('requester_mention', "Unknown User")
-                        await player.text_channel.send(f"🎶 Now playing: **{next_track.title}** (Requested by: {requester_mention})")
+                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'): # Check if next_track is Playable
+                        display_title = getattr(next_track.extras, 'display_title', next_track.title or "Unknown Title")
+                        requester_mention = getattr(next_track.extras, 'requester_mention', "Unknown User")
+                        await player.text_channel.send(f"🎶 Now playing: **{display_title}** (Requested by: {requester_mention})")
                 except Exception as e:
+                    logger.error(f"Error playing next track after 'finished' event: {e}", exc_info=True) # Differentiate log slightly
                     if hasattr(player, 'text_channel') and player.text_channel:
                         await player.text_channel.send(f"Error playing next track: {str(e)}. Please check logs.")
             else: # Queue is empty
@@ -120,10 +122,12 @@ class MusicCog(commands.Cog): # Renamed class
                 try:
                     next_track = player.queue.get()
                     await player.play(next_track)
-                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'):
-                       requester_mention = next_track.extras.get('requester_mention', "Unknown User")
-                       await player.text_channel.send(f"🎶 Now playing: **{next_track.title}** (Requested by: {requester_mention})")
+                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'): # Check if next_track is Playable
+                       display_title = getattr(next_track.extras, 'display_title', next_track.title or "Unknown Title")
+                       requester_mention = getattr(next_track.extras, 'requester_mention', "Unknown User")
+                       await player.text_channel.send(f"🎶 Now playing: **{display_title}** (Requested by: {requester_mention})")
                 except Exception as e:
+                    logger.error(f"Error playing next track after 'load_failed' event: {e}", exc_info=True) # Differentiate log slightly
                     if hasattr(player, 'text_channel') and player.text_channel:
                         await player.text_channel.send(f"Error playing next track after load failure: {str(e)}. Please check logs.")
             else: # Queue is empty after load failure
