@@ -97,7 +97,7 @@ class MusicCog(commands.Cog): # Renamed class
         # If a track ended because it was stopped by /stop or /disconnect, player might be disconnected.
         # The player.stop() or player.disconnect() in those commands should handle cleanup.
 
-        if payload.reason.name == 'finished':
+        if payload.reason == 'finished':
             if not player.queue.is_empty:
                 try:
                     next_track = player.queue.get()
@@ -113,7 +113,7 @@ class MusicCog(commands.Cog): # Renamed class
                      await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
                 self._schedule_inactivity_check(player.guild.id)
         
-        elif payload.reason.name == 'load_failed':
+        elif payload.reason == 'load_failed':
             if hasattr(player, 'text_channel') and player.text_channel:
                 await player.text_channel.send(f"Failed to load track: **{payload.track.title if payload.track else 'Unknown Track'}**. Skipping to next if available.")
             if not player.queue.is_empty:
@@ -131,7 +131,7 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason.name == 'stopped': # Track was stopped by a command like /stop or /skip
+        elif payload.reason == 'stopped': # Track was stopped by a command like /stop or /skip
             if player.queue.is_empty and player.connected: # If /skip made queue empty
                  if hasattr(player, 'text_channel') and player.text_channel:
                     await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
@@ -593,23 +593,42 @@ class MusicCog(commands.Cog): # Renamed class
             await interaction.followup.send("The queue is empty.", ephemeral=True)
             return
 
-        if not (1 <= track_number <= len(player.queue)):
-            await interaction.followup.send(f"Invalid track number. Must be between 1 and {len(player.queue)}.", ephemeral=True)
+        # track_number is 1-indexed. Convert to 0-indexed for list slicing.
+        target_zero_indexed = track_number - 1
+
+        # Use list(player.queue) to get a copy for consistent length checking
+        current_queue_list = list(player.queue)
+        if not (0 <= target_zero_indexed < len(current_queue_list)):
+            await interaction.followup.send(f"Invalid track number. Must be between 1 and {len(current_queue_list)}.", ephemeral=True)
             return
+
+        # Get all current queue items
+        # current_queue_items = list(player.queue) # Already got current_queue_list
+
+        # Clear the live queue
+        player.queue.clear()
+
+        # Add back the tracks from the target track to the end
+        for i in range(target_zero_indexed, len(current_queue_list)):
+            player.queue.put(current_queue_list[i])
         
-        target_track_index = track_number - 1
-        player.queue.skip_to_index(target_track_index)
-        
-        # player.skip() will stop the current track and Lavalink will send an event.
-        # The on_wavelink_track_end event will then play the next track in queue,
-        # which is now the track we skipped to.
-        # If nothing is playing, skip won't trigger track_end, so we also need to ensure play if stopped.
+        # If something is playing or paused, skip to initiate playing the new first track from the modified queue.
+        # If nothing was playing, and the queue is now not empty, start playback.
         if player.playing or player.paused:
-            await player.skip(force=True) # force=True to ensure it skips even if paused.
-        else: # If player was stopped but queue was not empty
-            next_track = player.queue.get()
-            if next_track:
-                await player.play(next_track)
+            await player.skip(force=True)
+            # on_wavelink_track_end should handle playing the new first item if queue not empty
+        elif not player.queue.is_empty:
+            # This case handles if the player was stopped but queue was not empty and skipto is used.
+            # Or if skipto is used on an empty playing queue (after current song finished)
+            try:
+                first_track = player.queue.get() # Get the track we want to start
+                await player.play(first_track)
+                # No need to send "Now playing" here, as on_wavelink_track_start should handle it globally if implemented
+                # or the individual play command for local files already sent a message.
+            except Exception as e:
+                logger.error(f"Error trying to play after skipto on idle player: {e}", exc_info=True)
+                await interaction.followup.send("Skipped, but could not automatically start the track.", ephemeral=True)
+        # If player was not playing and queue is now empty (e.g. skipped to end of a 1-item queue), do nothing more.
 
         await interaction.followup.send(f"Skipped to track {track_number}.")
 
