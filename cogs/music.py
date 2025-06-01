@@ -131,13 +131,34 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason == 'stopped': # Track was stopped by a command like /stop or /skip
-            if player.queue.is_empty and player.connected: # If /skip made queue empty
-                 if hasattr(player, 'text_channel') and player.text_channel:
-                    await player.text_channel.send("Queue finished. Bot will disconnect if inactive.")
+        elif payload.reason == 'stopped':
+            logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue empty: {player.queue.is_empty}, Queue size: {len(list(player.queue))}") # Use len(list(player.queue)) for accurate size at this moment
+            if not player.queue.is_empty:
+                # Add another log to see what's at the front of the queue
+                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - About to get track from queue. Current front title: '{getattr(player.queue[0].extras, 'display_title', player.queue[0].title if player.queue and hasattr(player.queue[0], 'title') else 'N/A')}'")
+                try:
+                    next_track = player.queue.get()
+                    # ADD THIS LINE:
+                    logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Got next_track. Title: '{getattr(next_track.extras, 'display_title', next_track.title if next_track and hasattr(next_track, 'title') else 'N/A')}', URI: '{getattr(next_track, 'uri', 'N/A')}'")
+                    await player.play(next_track)
+                    # Optional: Send "Now playing" message, consistent with 'finished' reason.
+                    # Consider if this is desirable after a /skip or /stop that results in immediate next play.
+                    # For now, let's keep it consistent with 'finished'.
+                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'): # Check if next_track is Playable
+                        display_title = getattr(next_track.extras, 'display_title', next_track.title or "Unknown Title")
+                        requester_mention = getattr(next_track.extras, 'requester_mention', "Unknown User")
+                        await player.text_channel.send(f"🎶 Now playing: **{display_title}** (Requested by: {requester_mention})")
+                except Exception as e:
+                    logger.error(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Error playing next track: {e}", exc_info=True)
+                    if hasattr(player, 'text_channel') and player.text_channel:
+                        await player.text_channel.send(f"Error playing next track: {str(e)}. Please check logs.")
+            else:
+                logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue is empty, scheduling inactivity check.")
+                if hasattr(player, 'text_channel') and player.text_channel:
+                     await player.text_channel.send("Playback stopped and queue is empty. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
             # If /stop was used, player will likely be disconnected by the command itself.
-            # If /skip was used and queue is not empty, track_end for skip should trigger next play.
+            # If /skip was used and queue is not empty, track_end for skip should trigger next play (already handled by this block).
 
         # REPLACED and CLEANUP reasons usually don't need specific "next song" logic here
         # as they are handled by Wavelink or other commands.
