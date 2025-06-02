@@ -37,6 +37,15 @@ def format_duration(milliseconds: Optional[Union[int, float]]) -> str:
 
     return f"{hours}:{minutes:02d}:{seconds:02d}" if hours > 0 else f"{minutes}:{seconds:02d}"
 
+def get_human_readable_size(size_bytes: int) -> str:
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return f"{s} {size_name[i]}"
+
 class MusicCog(commands.Cog): # Renamed class
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -700,6 +709,53 @@ class MusicCog(commands.Cog): # Renamed class
             await interaction.followup.send("⏹️ Music stopped, queue cleared, and disconnected.")
         else:
             await interaction.response.send_message("Not connected to any voice channel or no player available.", ephemeral=True)
+
+    @app_commands.command(name="cachesize", description="Shows the current size of the music download cache.")
+    async def cachesize_command(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        total_size_bytes = 0
+        file_count = 0
+        try:
+            for item in os.listdir(MUSIC_CACHE_DIR):
+                item_path = os.path.join(MUSIC_CACHE_DIR, item)
+                if os.path.isfile(item_path):
+                    total_size_bytes += os.path.getsize(item_path)
+                    file_count += 1
+
+            human_readable_str = get_human_readable_size(total_size_bytes)
+
+            await interaction.followup.send(f"Music cache size: {human_readable_str} across {file_count} file(s).", ephemeral=True)
+        except FileNotFoundError:
+            await interaction.followup.send(f"Cache directory '{MUSIC_CACHE_DIR}' not found.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error calculating cache size: {e}", exc_info=True)
+            await interaction.followup.send("Could not calculate cache size due to an error.", ephemeral=True)
+
+    @app_commands.command(name="clearcache", description="Deletes all downloaded songs from the music cache.")
+    async def clearcache_command(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=False) # Visible confirmation is good
+        files_deleted = 0
+        errors_occurred = False
+        try:
+            for item in os.listdir(MUSIC_CACHE_DIR):
+                item_path = os.path.join(MUSIC_CACHE_DIR, item)
+                if os.path.isfile(item_path):
+                    try:
+                        os.remove(item_path)
+                        files_deleted += 1
+                    except Exception as e_file:
+                        logger.error(f"Error deleting file {item_path} from cache: {e_file}", exc_info=True)
+                        errors_occurred = True
+
+            if errors_occurred:
+                await interaction.followup.send(f"Music cache partially cleared. {files_deleted} file(s) deleted. Some errors occurred, check logs.")
+            else:
+                await interaction.followup.send(f"Music cache cleared successfully. {files_deleted} file(s) deleted.")
+        except FileNotFoundError:
+            await interaction.followup.send(f"Cache directory '{MUSIC_CACHE_DIR}' not found. Nothing to clear.", ephemeral=True)
+        except Exception as e:
+            logger.error(f"Error clearing cache: {e}", exc_info=True)
+            await interaction.followup.send("An error occurred while trying to clear the cache.", ephemeral=True)
 
 async def setup(bot: commands.Bot):
     await bot.add_cog(MusicCog(bot)) # Ensure class name is updated here too
