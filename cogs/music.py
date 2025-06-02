@@ -144,10 +144,10 @@ class MusicCog(commands.Cog): # Renamed class
                     await player.text_channel.send("Queue finished after track load failure. Bot will disconnect if inactive.")
                  self._schedule_inactivity_check(player.guild.id)
 
-        elif payload.reason == 'stopped':
+        elif payload.reason == 'stopped': 
             # ADD THIS LINE FIRST in the block:
             logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Event triggered. Current queue size: {len(list(player.queue))}, Is empty: {player.queue.is_empty}")
-
+            
             if not player.queue.is_empty:
                 # ADD THIS LINE (ensure player.queue[0] access is safe):
                 current_front_track_info = "N/A"
@@ -159,13 +159,13 @@ class MusicCog(commands.Cog): # Renamed class
                     next_track = player.queue.get()
                     # ADD THIS LINE:
                     logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Got next_track. Title: '{getattr(next_track.extras, 'display_title', next_track.title if next_track and hasattr(next_track, 'title') else 'N/A')}', URI: '{getattr(next_track, 'uri', 'N/A')}'")
-
+                    
                     await player.play(next_track)
                     # ADD THIS LINE:
                     logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Called player.play(next_track).")
 
                     # (existing message sending logic for "Now playing")
-                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'):
+                    if hasattr(player, 'text_channel') and player.text_channel and hasattr(next_track, 'title'): 
                         display_title = getattr(next_track.extras, 'display_title', next_track.title or "Unknown Title")
                         requester_mention = getattr(next_track.extras, 'requester_mention', "Unknown User")
                         await player.text_channel.send(f"🎶 Now playing: **{display_title}** (Requested by: {requester_mention})")
@@ -173,7 +173,7 @@ class MusicCog(commands.Cog): # Renamed class
                     logger.error(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Error playing next track: {e}", exc_info=True)
                     if hasattr(player, 'text_channel') and player.text_channel:
                         await player.text_channel.send(f"Error playing next track: {str(e)}. Please check logs.")
-            else:
+            else: 
                 # ADD THIS LINE:
                 logger.debug(f"[TRACK_END_STOPPED] Guild: {player.guild.id} - Queue IS empty after stop, scheduling inactivity check.")
                 if hasattr(player, 'text_channel') and player.text_channel:
@@ -226,7 +226,7 @@ class MusicCog(commands.Cog): # Renamed class
             # Construct expected filepath
             # yt-dlp with --audio-format opus and -o "./music_cache/%(id)s.%(ext)s"
             # will likely produce a .opus file.
-            expected_filename = f"{video_id}.opus"
+            expected_filename = f"{video_id}.opus" 
             cached_filepath = os.path.join(MUSIC_CACHE_DIR, expected_filename)
             abs_cached_filepath = os.path.abspath(cached_filepath)
 
@@ -287,11 +287,11 @@ class MusicCog(commands.Cog): # Renamed class
                 if not tracks:
                     await interaction.channel.send("Could not load the downloaded local file via Lavalink. The file might be corrupted or an unsupported format for Lavalink's local source.")
                     return
-
+                
                 track_to_play = tracks[0] if isinstance(tracks, list) else tracks
                 track_to_play.extras = {
-                    'requester_id': interaction.user.id,
-                    'requester_mention': interaction.user.mention,
+                    'requester_id': interaction.user.id, 
+                    'requester_mention': interaction.user.mention, 
                     'display_title': fetched_title # Use the fetched title here
                 }
 
@@ -313,51 +313,51 @@ class MusicCog(commands.Cog): # Renamed class
         else: # Not a YouTube video URL, proceed with existing Lavalink search logic
             try:
                 search_result = await wavelink.Playable.search(query)
-
+                
                 # Primary check for Wavelink v3, which returns None or empty list if no tracks are found.
-                if not search_result:
+                if not search_result: 
                     await interaction.followup.send("No results found for your query.", ephemeral=True)
                     return
-
+                
                 # Ensure player.text_channel is set for later messages by on_wavelink_track_end
                 if not hasattr(player, 'text_channel') or not player.text_channel:
                     if interaction.channel: # Check if interaction.channel exists
                         player.text_channel = interaction.channel
                     # else: Fallback not strictly needed here as command context should have channel
 
-                requester_id = interaction.user.id
-                requester_mention = interaction.user.mention
+                requester_id = interaction.user.id 
+                requester_mention = interaction.user.mention 
 
                 if isinstance(search_result, wavelink.Playlist):
                     playlist = search_result
                     # Limit how many tracks we take from the playlist initially
-                    tracks_to_process = playlist.tracks[:self.max_playlist_size]
-
+                    tracks_to_process = playlist.tracks[:self.max_playlist_size] 
+                    
                     if not tracks_to_process:
                         await interaction.followup.send(f"Playlist **{playlist.name}** is empty or no usable tracks found (check Lavalink logs for details).", ephemeral=True)
                         return
-
+                    
                     added_count = 0
                     first_track_played_info = None
-
+                    
                     # If nothing is playing, play the first track immediately
                     if not player.playing and not player.paused:
-                        if tracks_to_process:
+                        if tracks_to_process: 
                             first_track = tracks_to_process.pop(0) # Remove from list to process
                             first_track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
                             await player.play(first_track)
                             first_track_played_info = f"🎶 Playing: **{first_track.title}** (from playlist **{playlist.name}** requested by {requester_mention})"
-
+                    
                     # Add remaining tracks to the queue
                     for track in tracks_to_process:
                         if player.queue.count >= self.max_queue_size:
-                            if player.text_channel:
+                            if player.text_channel: 
                                 await player.text_channel.send(f"Queue is full ({self.max_queue_size} tracks). Not all songs from **{playlist.name}** were added.", ephemeral=True)
                             break
                         track.extras = {'requester_id': requester_id, 'requester_mention': requester_mention}
                         player.queue.put(track)
                         added_count += 1
-
+                    
                     response_message = ""
                     if first_track_played_info:
                         response_message = first_track_played_info
@@ -369,20 +369,20 @@ class MusicCog(commands.Cog): # Renamed class
                         response_message = f"Could not add songs from **{playlist.name}**. Player might be busy and queue full, or playlist limit reached/empty."
 
                     await interaction.followup.send(response_message)
-
+                    
                     # Notify if playlist was truncated due to bot's own MAX_PLAYLIST_SIZE limit
-                    if len(playlist.tracks) > self.max_playlist_size and added_count == (self.max_playlist_size - (1 if first_track_played_info else 0)) :
-                         if player.text_channel:
+                    if len(playlist.tracks) > self.max_playlist_size and added_count == (self.max_playlist_size - (1 if first_track_played_info else 0)) : 
+                         if player.text_channel: 
                             await player.text_channel.send(f"ℹ️ Note: Playlist **{playlist.name}** was truncated to the first {self.max_playlist_size} songs due to bot configuration.", ephemeral=True)
 
 
                 else: # Single track or search result (list of Playable)
                     # If search_result is a list, take the first item. Otherwise, it's a single Playable.
                     single_track = search_result[0] if isinstance(search_result, list) else search_result
-
+                    
                     # This check might be redundant if wavelink.Playable.search always returns Playable or list of Playable
                     # but kept for safety.
-                    if not isinstance(single_track, wavelink.Playable):
+                    if not isinstance(single_track, wavelink.Playable): 
                         await interaction.followup.send("Could not process the search result into a playable track.", ephemeral=True)
                         return
 
@@ -558,10 +558,10 @@ class MusicCog(commands.Cog): # Renamed class
             thumbnail_url = current_track.artwork
         elif hasattr(current_track, 'thumb') and current_track.thumb: # youtube_dl often provides 'thumb' for Playable objects from search
             thumbnail_url = current_track.thumb
-
+        
         if thumbnail_url:
             embed.set_thumbnail(url=thumbnail_url)
-
+        
         embed.add_field(name="👤 Artist/Author", value=current_track.author or "Unknown Artist", inline=True)
         embed.add_field(name="⏱️ Duration", value=format_duration(current_track.length), inline=True) # Verified .length
         
@@ -569,7 +569,7 @@ class MusicCog(commands.Cog): # Renamed class
         embed.add_field(name="🙋 Requested by", value=requester_mention, inline=True)
 
         embed.add_field(name="🎵 Source", value=current_track.source.replace('_', ' ').title() if current_track.source else "Unknown Source", inline=True)
-
+        
         # Loop status
         if player.queue.mode == wavelink.QueueMode.loop: # Track loop
             embed.add_field(name="🔁 Looping", value="Current Track", inline=True)
@@ -580,7 +580,7 @@ class MusicCog(commands.Cog): # Renamed class
 
         embed.add_field(name="🔊 Volume", value=f"{player.volume}%", inline=True)
         
-        if player.queue and player.current:
+        if player.queue and player.current: 
             embed.add_field(name="📊 Queue Position", value=f"Currently Playing", inline=True)
         
         embed.add_field(name="ℹ️ Track ID (Debug)", value=f"`{current_track.identifier}`", inline=False)
@@ -658,7 +658,7 @@ class MusicCog(commands.Cog): # Renamed class
         # If something is playing or paused, skip to initiate playing the new first track from the modified queue.
         # If nothing was playing, and the queue is now not empty, start playback.
         if player.playing or player.paused:
-            await player.skip(force=True)
+            await player.skip(force=True) 
             # on_wavelink_track_end should handle playing the new first item if queue not empty
         elif not player.queue.is_empty:
             # This case handles if the player was stopped but queue was not empty and skipto is used.
@@ -721,9 +721,9 @@ class MusicCog(commands.Cog): # Renamed class
                 if os.path.isfile(item_path):
                     total_size_bytes += os.path.getsize(item_path)
                     file_count += 1
-
+            
             human_readable_str = get_human_readable_size(total_size_bytes)
-
+            
             await interaction.followup.send(f"Music cache size: {human_readable_str} across {file_count} file(s).", ephemeral=True)
         except FileNotFoundError:
             await interaction.followup.send(f"Cache directory '{MUSIC_CACHE_DIR}' not found.", ephemeral=True)
@@ -746,7 +746,7 @@ class MusicCog(commands.Cog): # Renamed class
                     except Exception as e_file:
                         logger.error(f"Error deleting file {item_path} from cache: {e_file}", exc_info=True)
                         errors_occurred = True
-
+            
             if errors_occurred:
                 await interaction.followup.send(f"Music cache partially cleared. {files_deleted} file(s) deleted. Some errors occurred, check logs.")
             else:
